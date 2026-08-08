@@ -1347,18 +1347,17 @@ export function installInterceptor() {
         const useDepthInjection = settings.loreInjectionPosition === 4;
         const useWpDepthInjection = settings.worldProgressionInjectionPosition === 4;
 
+        loreInjections = `\n<lore>${loreInjections}</lore>\n`
+        wpInjections = `\n<lore>${wpInjections}</lore>\n`
+
         // When not using depth injection, fold lore/world progression into the core block so that
         // the user message receives one cohesive injection (original behaviour).
         let coreBlock = injections;
         if (!useDepthInjection && loreInjections) {
-            coreBlock += "\n<lore>"
             coreBlock += loreInjections;
-            coreBlock += "</lore>\n"
         }
         if (!useWpDepthInjection && wpInjections) {
-            coreBlock += "\n<world_progression>"
             coreBlock += wpInjections;
-            coreBlock += "<world_progression>\n"
         }
 
         // ── 1. Core injection → always into user message ─────────────────────────
