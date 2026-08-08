@@ -1225,7 +1225,7 @@ export function installInterceptor() {
                                 }
                             }
                             if (loreBlock) {
-                                loreInjections += `\n<font color="#d4a028">## NEWLY ACTIVATED LORE (KEYWORD MATCH)</font>\n${loreBlock.trim()}\n`;
+                                loreInjections += `\n## NEWLY ACTIVATED LORE (KEYWORD MATCH)\n${loreBlock.trim()}\n`;
                                 console.log(`[RPG|INTERCEPT] Same-turn lore injected for ${triggered.length} entries.`);
                             }
                         } catch (e) {
@@ -1250,7 +1250,7 @@ export function installInterceptor() {
                                 }
                             }
                             if (persistBlock) {
-                                loreInjections += `\n<font color="#d4a028">## ACTIVE LORE (KEYWORD)</font>\n${persistBlock.trim()}\n`;
+                                loreInjections += `\n## ACTIVE LORE (KEYWORD)\n${persistBlock.trim()}\n`;
                             }
                         } catch (e) {
                             console.warn('[RPG Tracker] Persistent keyword lore re-injection failed:', e);
@@ -1351,17 +1351,21 @@ export function installInterceptor() {
         // the user message receives one cohesive injection (original behaviour).
         let coreBlock = injections;
         if (!useDepthInjection && loreInjections) {
+            coreBlock += "\n<lore>"
             coreBlock += loreInjections;
+            coreBlock += "</lore>\n"
         }
         if (!useWpDepthInjection && wpInjections) {
+            coreBlock += "\n<world_progression>"
             coreBlock += wpInjections;
+            coreBlock += "<world_progression>\n"
         }
 
         // ── 1. Core injection → always into user message ─────────────────────────
         if (coreBlock) {
             const originalContent = extractTextContent(msg).trim();
             const displayContent = originalContent ? originalContent : "[Continue the narrative]";
-            const userHeader = `\n### CURRENT USER INPUT\n${displayContent}\n`;
+            const userHeader = `\n<current_user_input>\n${displayContent}\n</current_user_input>\n`;
 
             if (typeof msg.content === 'string') {
                 msg.content = coreBlock + userHeader;
