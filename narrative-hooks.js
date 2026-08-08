@@ -39,6 +39,56 @@ function setChatMessageText(msg, text) {
     }
 }
 
+/** Marker set on messages this interceptor splices in, so depth math can ignore them. */
+const RPG_DEPTH_INJECTION_FLAG = '_rpgDepthInjection';
+
+/**
+ * True when a chat message is a user turn, across ST internal (.is_user) and
+ * API-shaped (.role) payloads.
+ * @param {object} msg
+ * @returns {boolean}
+ */
+function isUserChatMessage(msg) {
+    if (!msg) return false;
+    if (msg.is_user) return true;
+    const rawRole = msg.role ?? msg.Role;
+    if (!rawRole) return false;
+    const role = String(rawRole).toLowerCase().trim();
+    return role === 'user' || role === 'human' || role === 'player';
+}
+
+/**
+ * Resolve a splice index for depth-based injection.
+ *
+ * Depth counts speaker turns (is_user transitions), not array slots, so the
+ * message merging that runs after this interceptor can't shift it. Anchoring to
+ * the last user message keeps it stable while tool-call messages pile up after.
+ *
+ * depth 0 → after the anchor's turn; depth N → N turn boundaries back.
+ *
+ * @param {object[]} chat
+ * @param {number} depth
+ * @param {number} anchorIdx Index of the last user message.
+ * @returns {number} Index to splice at.
+ */
+function resolveDepthInsertIndex(chat, depth, anchorIdx) {
+    if (!Array.isArray(chat) || chat.length === 0) return 0;
+
+    const end = Math.min(anchorIdx ?? chat.length - 1, chat.length - 1);
+    let remaining = Math.max(0, Math.floor(Number(depth)) || 0);
+    if (remaining === 0) return end + 1;
+
+    let wasUser = isUserChatMessage(chat[end]);
+    for (let i = end; i >= 0; i--) {
+        if (chat[i]?.[RPG_DEPTH_INJECTION_FLAG]) continue; // our own splices aren't turns
+        const isUser = isUserChatMessage(chat[i]);
+        if (isUser === wasUser) continue;
+        wasUser = isUser;
+        if (--remaining === 0) return i + 1;
+    }
+    return 0;
+}
+
 /**
  * Strip prior CYOA/pacing from older user turns; recover raw typed text on the
  * current user turn so pacing + CYOA + RNG can be freshly re-injected.
@@ -50,9 +100,7 @@ function prepareUserMessagesForContextInject(chat, currentUserIdx) {
     for (let i = 0; i < chat.length; i++) {
         const m = chat[i];
         if (!m) continue;
-        const role = String(m.role || '').toLowerCase();
-        const isUser = m.is_user || role === 'user' || role === 'human' || role === 'player';
-        if (!isUser) continue;
+        if (!isUserChatMessage(m)) continue;
 
         const raw = extractTextContent(m);
         if (i === currentUserIdx) {
@@ -988,8 +1036,7 @@ export function installInterceptor() {
         // 1. Check for explicit user roles (case insensitive) or ST internal flag
         for (let i = chat.length - 1; i >= 0; i--) {
             if (settings.debugMode) console.log(`Checking message ${i}: role=${chat[i]?.role}, is_user=${chat[i]?.is_user}`);
-            const role = String(chat[i]?.role || chat[i]?.Role || '').toLowerCase().trim();
-            if (chat[i]?.is_user || role === 'user' || role === 'human' || role === 'player') {
+            if (isUserChatMessage(chat[i])) {
                 idx = i;
                 break;
             }
@@ -1340,19 +1387,25 @@ export function installInterceptor() {
         // The `chat` array here is SillyTavern's internal format (.mes / .is_user /
         // .name / .extra). Setting extra.type = 'narrator' maps to role:'system'
         // when setOpenAIMessages() converts it to API format.
+        // Depth is measured in speaker turns from the last user message.
+        // A splice at or before the anchor shifts it.
+        let anchorIdx = idx;
+
         if (useDepthInjection && loreInjections) {
             const depth = settings.loreInjectionDepth ?? 4;
-            const insertIdx = Math.max(0, chat.length - depth);
+            const insertIdx = resolveDepthInsertIndex(chat, depth, anchorIdx);
             const roleVal = settings.loreInjectionRole ?? 0;
             const loreMessage = {
                 name: 'RPG Framework',
                 mes: loreInjections,
                 is_user: roleVal === 1,
                 extra: roleVal === 0 ? { type: 'narrator' } : {},
+                [RPG_DEPTH_INJECTION_FLAG]: true,
             };
             chat.splice(insertIdx, 0, loreMessage);
+            if (insertIdx <= anchorIdx) anchorIdx++;
             if (settings.debugMode) {
-                console.log(`[Multihog Framework] Lore depth injection: spliced at index ${insertIdx} (depth ${depth}), chat now ${chat.length} messages.`);
+                console.log(`[Multihog Framework] Lore depth injection: spliced at index ${insertIdx} (depth ${depth} turns, anchor ${anchorIdx}), chat now ${chat.length} messages.`);
                 const roleName = roleVal === 1 ? 'user' : roleVal === 2 ? 'assistant' : 'system';
                 logTransaction('Lore (Depth Splice)', [{ role: roleName, content: loreInjections }]);
             }
@@ -1361,17 +1414,19 @@ export function installInterceptor() {
         // ── 3. World Progression injection → configurable depth ──────────────────
         if (useWpDepthInjection && wpInjections) {
             const wpDepth = settings.worldProgressionInjectionDepth ?? 4;
-            const insertIdx = Math.max(0, chat.length - wpDepth);
+            const insertIdx = resolveDepthInsertIndex(chat, wpDepth, anchorIdx);
             const wpRoleVal = settings.worldProgressionInjectionRole ?? 0;
             const wpMessage = {
                 name: 'World Progression',
                 mes: wpInjections,
                 is_user: wpRoleVal === 1,
                 extra: wpRoleVal === 0 ? { type: 'narrator' } : {},
+                [RPG_DEPTH_INJECTION_FLAG]: true,
             };
             chat.splice(insertIdx, 0, wpMessage);
+            if (insertIdx <= anchorIdx) anchorIdx++;
             if (settings.debugMode) {
-                console.log(`[Multihog Framework] World Progression depth injection: spliced at index ${insertIdx} (depth ${wpDepth}), chat now ${chat.length} messages.`);
+                console.log(`[Multihog Framework] World Progression depth injection: spliced at index ${insertIdx} (depth ${wpDepth} turns, anchor ${anchorIdx}), chat now ${chat.length} messages.`);
                 const roleName = wpRoleVal === 1 ? 'user' : wpRoleVal === 2 ? 'assistant' : 'system';
                 logTransaction('World Progression (Depth Splice)', [{ role: roleName, content: wpInjections }]);
             }
