@@ -2,6 +2,16 @@
 
 All notable changes to the **Multihog D&D Framework** will be documented in this file.
 
+## [7.20.0] - 2026-08-11
+
+### Changed
+- **Initial Setup label**: Instant Action guidance is labeled `Initial Setup:` in the character-generation prompt and opening adventure message.
+
+## [7.10.6] - 2026-08-11
+
+### Added
+- **Instant Action instructions**: Quick Start now has an optional guidance box for character details, setting, premise, or tone. Specified details override rolled defaults, and the same guidance is included with the opening `Begin the adventure` message so the narrator starts in the requested scenario.
+
 ## [7.10.5] - 2026-08-11
 
 ### Fixed
