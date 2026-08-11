@@ -17,7 +17,7 @@
                     <div class="inline-drawer">
                         <div class="inline-drawer-toggle inline-drawer-header">
                             <i class="fa-solid fa-sliders" style="margin-right: 6px; opacity: 0.65;"></i>
-                            <b>Core</b>
+                            <b>Core &amp; Branching</b>
                             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down"></div>
                         </div>
                         <div class="inline-drawer-content">
@@ -36,6 +36,10 @@
                                 title="Save and restore the Control Room and module setup per chat. Standalone modules and snippets can be Global or Chat-bound; Wizard components inherit scope from their Game System. Turning this off temporarily bypasses those scopes and carries the current setup between chats without changing any saved scope choices."></i>
                         </label>
                         <button id="rpg_tracker_clear_chat_states" class="menu_button interactable" style="margin-top: 4px; margin-left: 4px; width: calc(100% - 4px); font-size: 0.9em;"><i class="fa-solid fa-trash-can"></i> Remove all chat links</button>
+
+                        <small style="display: block; margin-top: 10px; margin-bottom: 2px; font-weight: bold; opacity: 0.65; text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.4px;">Branching</small>
+                        <button id="rpg_tracker_branch_campaign_btn" class="menu_button interactable" style="margin-top: 2px; margin-left: 4px; width: calc(100% - 4px); font-size: 0.9em;" title="Creates a SillyTavern branch chat, copies all Multihog campaign data, and clones lorebooks under the new chat prefix. The original chat stays intact."><i class="fa-solid fa-code-branch"></i> Branch Campaign</button>
+                        <div style="font-size: 0.75em; opacity: 0.6; line-height: 1.35; padding: 4px 4px 0 4px;">One-button fork: ST transcript branch + Multihog chat data + lorebook stack. Requires Chat-Linked Mode. Lorebook-only cloning remains under Lorebook Agent → Clone Stack.</div>
 
                         <small style="display: block; margin-top: 10px; margin-bottom: 2px; font-weight: bold; opacity: 0.65; text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.4px;">Help</small>
                         <button id="rpg_tracker_tutorial_help" class="menu_button interactable" style="margin-top: 2px; margin-left: 4px; width: calc(100% - 4px); font-size: 0.9em;"><i class="fa-solid fa-comments"></i> CHAT</button>
@@ -652,6 +656,7 @@
                                 <label class="checkbox_label"><input type="checkbox" id="rpg_sysprompt_mod_random_events" /><span>🌍 Events</span></label>
                                 <label class="checkbox_label"><input type="checkbox" id="rpg_sysprompt_mod_resting" /><span>💤 Resting</span></label>
                                 <label class="checkbox_label"><input type="checkbox" id="rpg_sysprompt_mod_party_bench" /><span>⛺ Benched Party</span></label>
+                                <label class="checkbox_label" title="Builds a full hidden location map before dungeon/ruin exploration and resolves traps, stealth, and enemies against that map. Experimental."><input type="checkbox" id="rpg_sysprompt_mod_dungeon_reality_and_hidden_mapping" /><span>🗺️ Dungeon Reality Mapping (Experimental)</span></label>
                                 <div style="display:flex;align-items:center;gap:4px;">
                                 <label class="checkbox_label" style="flex:1;" title="Injects CYOA choice instructions (and active pacing tags) into the user-message context every turn, just above the RNG queue — not into Main system prompt. Prior CYOA/pacing copies are stripped first."><input type="checkbox" id="rpg_sysprompt_mod_cyoa_mode" /><span>🧭 CYOA Mode</span></label>
                                 <button id="rpg_cyoa_settings_btn" class="menu_button interactable" style="padding:1px 7px;font-size:11px;flex-shrink:0;" title="CYOA Settings"><i class="fa-solid fa-gear"></i></button>
@@ -1104,11 +1109,11 @@
                             </div>
                             <div class="inline-drawer-content">
                                 <div class="flex-container flexFlowColumn gap-1">
-                                    <label style="font-size: 11px; opacity: 0.7;">Major NPC Section Word Target</label>
-                                    <input id="rpg_tracker_npc_major_words" type="text" inputmode="numeric" pattern="[0-9]*" class="text_pole" value="25" title="Recurring, plot-important NPCs. Default: 25 words per section of [CORE]" />
+                                    <label style="font-size: 11px; opacity: 0.7;">Major NPC Total Word Target</label>
+                                    <input id="rpg_tracker_npc_major_words" type="text" inputmode="numeric" pattern="[0-9]*" class="text_pole" value="225" title="Recurring, plot-important NPCs. Default: 225 words total across all [CORE] sections" />
                                     
-                                    <label style="font-size: 11px; opacity: 0.7;">Minor NPC Section Word Target</label>
-                                    <input id="rpg_tracker_npc_minor_words" type="text" inputmode="numeric" pattern="[0-9]*" class="text_pole" value="15" title="Shopkeepers, guards, one-off encounters. Default: 15 words per section of [CORE]" />
+                                    <label style="font-size: 11px; opacity: 0.7;">Minor NPC Total Word Target</label>
+                                    <input id="rpg_tracker_npc_minor_words" type="text" inputmode="numeric" pattern="[0-9]*" class="text_pole" value="135" title="Shopkeepers, guards, one-off encounters. Default: 135 words total across all [CORE] sections" />
 
                                     <label class="checkbox_label">
                                         <input id="rpg_tracker_npc_rel_bars" type="checkbox" />
@@ -1224,27 +1229,53 @@
                         <hr>
                         <div class="inline-drawer">
                             <div class="inline-drawer-toggle inline-drawer-header">
-                                <b>Agent Prompt</b>
+                                <b>System Prompt</b>
                                 <div class="inline-drawer-icon fa-solid fa-circle-down down"></div>
                             </div>
                             <div class="inline-drawer-content">
                                 <div class="flex-container flexFlowColumn gap-1">
-                                    <textarea id="rpg_tracker_router_prompt" class="text_pole autoSetHeight" rows="5"></textarea>
-                                    <button id="rpg_tracker_router_btn_reset_prompt" class="menu_button interactable" style="width: 100%; margin-top: 4px; font-size: 11px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset Agent Prompt</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="inline-drawer" style="margin-top: 6px;">
-                            <div class="inline-drawer-toggle inline-drawer-header">
-                                <b>Modular Agent Prompt</b>
-                                <div class="inline-drawer-icon fa-solid fa-circle-down down"></div>
-                            </div>
-                            <div class="inline-drawer-content">
-                                <div class="flex-container flexFlowColumn gap-1">
-                                    <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px; line-height: 1.3;">Controls formatting and module-specific rules (LOC, FAC, WORLD, etc). Use <span style="font-family: monospace;">{{formatLines}}</span> to inject the dynamically enabled modules.</div>
-                                    <textarea id="rpg_tracker_router_modular_prompt" class="text_pole autoSetHeight" rows="5"></textarea>
-                                    <button id="rpg_tracker_router_btn_reset_modular_prompt" class="menu_button interactable" style="width: 100%; margin-top: 4px; font-size: 11px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset Modular Prompt</button>
+                                    <div id="rpg_tracker_router_prompt_desc" style="font-size: 10px; opacity: 0.7; margin-bottom: 4px; line-height: 1.3;">
+                                        Editable prompt template for the currently active Lorebook Agent mode.
+                                    </div>
+                                    <div style="font-size: 9px; opacity: 0.52; margin-bottom: 5px; line-height: 1.35;">Dynamic placeholders such as <span style="font-family:monospace">{{maxActivations}}</span>, <span style="font-family:monospace">{{formatLines}}</span>, and <span style="font-family:monospace">{{autoPassRestriction}}</span> are resolved for each request without changing this saved template.</div>
+                                    <textarea id="rpg_tracker_router_prompt" class="text_pole autoSetHeight" rows="12"></textarea>
+                                    <div id="rpg_tracker_router_modular_prompt_wrap" style="display:none; margin-top:8px;">
+                                        <label style="font-size:10px; font-weight:600;">Basic Format &amp; Module Template</label>
+                                        <div style="font-size:9px; opacity:0.52; margin:3px 0 5px; line-height:1.35;">Inserted at <span style="font-family:monospace">{{modularPrompt}}</span> in the Basic base prompt. Enabled modules and custom tags expand at <span style="font-family:monospace">{{formatLines}}</span>.</div>
+                                        <textarea id="rpg_tracker_router_modular_prompt" class="text_pole autoSetHeight" rows="12"></textarea>
+                                    </div>
+                                    <div id="rpg_tracker_router_agent_context_wrap" style="display:none; margin-top:8px;">
+                                        <label style="font-size:10px; font-weight:600;">Agent Shared Context Template</label>
+                                        <div style="font-size:9px; opacity:0.52; margin:3px 0 5px; line-height:1.35;">Rules appended after the Agent base prompt. Native tool schemas and text-action contracts remain generated from the enabled modules.</div>
+                                        <textarea id="rpg_tracker_router_agent_context" class="text_pole autoSetHeight" rows="12"></textarea>
+                                    </div>
+                                    <div id="rpg_tracker_router_fragments_wrap" style="margin-top:10px;">
+                                        <details>
+                                            <summary style="cursor:pointer; user-select:none; font-size:10px; font-weight:600; opacity:0.85;">Runtime Prompt Fragments (editable)</summary>
+                                            <div style="font-size:9px; opacity:0.52; margin:6px 0 8px; line-height:1.35;">
+                                                These used to be hardcoded in the extension. Branch selection (auto vs manual pass, combat active, relationship bars on/off) still happens at request time; edit the wording here. Placeholders such as <span style="font-family:monospace">{{eligibleCoreFields}}</span>, <span style="font-family:monospace">{{max}}</span>, and <span style="font-family:monospace">{{p30}}</span> expand per request.
+                                            </div>
+                                            <div id="rpg_tracker_router_fragments_basic" style="display:none;">
+                                                <label style="font-size:10px; font-weight:600;">Combat Profile Guidance (Basic)</label>
+                                                <textarea id="rpg_tracker_router_combat_guidance_basic" class="text_pole autoSetHeight" rows="6" style="margin-bottom:8px;"></textarea>
+                                                <label style="font-size:10px; font-weight:600;">Relationship Section (Basic)</label>
+                                                <textarea id="rpg_tracker_router_rel_section_basic" class="text_pole autoSetHeight" rows="6" style="margin-bottom:8px;"></textarea>
+                                            </div>
+                                            <div id="rpg_tracker_router_fragments_agent" style="display:none;">
+                                                <label style="font-size:10px; font-weight:600;">Combat Profile Guidance (Agent)</label>
+                                                <textarea id="rpg_tracker_router_combat_guidance_agent" class="text_pole autoSetHeight" rows="6" style="margin-bottom:8px;"></textarea>
+                                                <label style="font-size:10px; font-weight:600;">Relationship Section (Agent)</label>
+                                                <textarea id="rpg_tracker_router_rel_section_agent" class="text_pole autoSetHeight" rows="6" style="margin-bottom:8px;"></textarea>
+                                            </div>
+                                            <label style="font-size:10px; font-weight:600;">Auto-Pass Restriction</label>
+                                            <textarea id="rpg_tracker_router_auto_pass_restriction" class="text_pole autoSetHeight" rows="4" style="margin-bottom:8px;"></textarea>
+                                            <label style="font-size:10px; font-weight:600;">Manual / Direct-Prompt Restriction</label>
+                                            <textarea id="rpg_tracker_router_manual_pass_restriction" class="text_pole autoSetHeight" rows="4" style="margin-bottom:8px;"></textarea>
+                                            <label style="font-size:10px; font-weight:600;">Existing NPC Chronicle Nudge</label>
+                                            <textarea id="rpg_tracker_router_existing_npc_nudge" class="text_pole autoSetHeight" rows="3"></textarea>
+                                        </details>
+                                    </div>
+                                    <button id="rpg_tracker_router_btn_reset_prompt" class="menu_button interactable" style="width: 100%; margin-top: 4px; font-size: 11px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset System Prompt</button>
                                 </div>
                             </div>
                         </div>

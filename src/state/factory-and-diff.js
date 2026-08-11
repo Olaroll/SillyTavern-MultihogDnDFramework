@@ -5,9 +5,58 @@
 import { buildCyoaModeBlock, DEFAULT_STOCK_PROMPTS, RT_PROMPTS } from '../../constants.js';
 import { DEFAULT_MODULES } from './default-modules.js';
 import { buildDefaultSettings } from './defaults.js';
+import { buildFacInstruction, buildLocInstruction, buildNpcInstruction } from './module-instructions.js';
 import { DEFAULT_NPC_SECTIONS, DEFAULT_PC_SECTIONS } from './schema-sections.js';
 import { adjustPromptTimestamps } from './router-utils.js';
 import { buildNarrativePacingSection } from './narrative-pacing.js';
+
+/**
+ * Factory-only settings bag for shipped module-instruction snapshots.
+ * Must NOT read live getSettings() — DEFAULT_MODULES getters do, and that made the
+ * Prompt Defaults Updated fingerprint flip when user toggles (e.g. relationship bars)
+ * or when getSettings was not bound yet during init.
+ * @param {ReturnType<typeof buildDefaultSettings>} defaults
+ */
+function factoryInstructionSettings(defaults) {
+    return {
+        useDdMmYyFormat: false,
+        use24hTime: false,
+        npcRelationshipBars: !!defaults.npcRelationshipBars,
+        npcCoreSections: DEFAULT_NPC_SECTIONS,
+        npcMajorWords: defaults.npcMajorWords ?? 225,
+        npcMinorWords: defaults.npcMinorWords ?? 135,
+    };
+}
+
+/**
+ * Stock module instruction/format as shipped (independent of the user's live settings).
+ * @param {string} id
+ * @param {{ enabled?: boolean, tag?: string, format?: string, instruction?: string }} def
+ * @param {ReturnType<typeof buildDefaultSettings>} defaults
+ * @returns {{ instruction: string, format: string }}
+ */
+function factoryModuleSnapshot(id, def, defaults) {
+    const format = def.format || '';
+    const factory = factoryInstructionSettings(defaults);
+    if (id === 'npc') {
+        return {
+            instruction: buildNpcInstruction(
+                factory.npcMajorWords,
+                factory.npcMinorWords,
+                false,
+                factory,
+            ),
+            format,
+        };
+    }
+    if (id === 'loc') {
+        return { instruction: buildLocInstruction(factory), format };
+    }
+    if (id === 'fac') {
+        return { instruction: buildFacInstruction(factory), format };
+    }
+    return { instruction: def.instruction || '', format };
+}
 
 /**
  * Stable text form of NPC/PC CORE section schemas for fingerprint + upgrade diffs.
@@ -96,10 +145,7 @@ export function buildBundledPromptsSnapshot() {
     /** @type {Record<string, { instruction: string, format: string }>} */
     const modules = {};
     for (const [id, def] of Object.entries(DEFAULT_MODULES)) {
-        modules[id] = {
-            instruction: def.instruction || '',
-            format: def.format || '',
-        };
+        modules[id] = factoryModuleSnapshot(id, def, defaults);
     }
     return normalizeBundledPromptsSnapshot({
         sysprompt: {
@@ -133,8 +179,17 @@ export function buildBundledPromptsSnapshot() {
             stockPrompts: JSON.parse(JSON.stringify(DEFAULT_STOCK_PROMPTS)),
         },
         lorebook: {
+            routerBasicSystemPromptTemplate: defaults.routerBasicSystemPromptTemplate || '',
             routerSystemPromptTemplate: defaults.routerSystemPromptTemplate || '',
             routerModularPromptTemplate: defaults.routerModularPromptTemplate || '',
+            routerAgentSharedContextTemplate: defaults.routerAgentSharedContextTemplate || '',
+            routerCombatProfileGuidanceBasicTemplate: defaults.routerCombatProfileGuidanceBasicTemplate || '',
+            routerCombatProfileGuidanceAgentTemplate: defaults.routerCombatProfileGuidanceAgentTemplate || '',
+            routerAutoPassRestrictionTemplate: defaults.routerAutoPassRestrictionTemplate || '',
+            routerManualPassRestrictionTemplate: defaults.routerManualPassRestrictionTemplate || '',
+            routerExistingNpcNudgeTemplate: defaults.routerExistingNpcNudgeTemplate || '',
+            routerRelSectionBasicTemplate: defaults.routerRelSectionBasicTemplate || '',
+            routerRelSectionAgentTemplate: defaults.routerRelSectionAgentTemplate || '',
             modules,
         },
         world: {
@@ -211,8 +266,17 @@ export function getSnapshotCategoryBlocks(snap, category) {
     }
     if (category === 'lorebook') {
         const blocks = [
-            { label: 'Router System Prompt', text: snap.lorebook?.routerSystemPromptTemplate || '' },
+            { label: 'Basic System Prompt', text: snap.lorebook?.routerBasicSystemPromptTemplate || '' },
             { label: 'Modular Prompt Template', text: snap.lorebook?.routerModularPromptTemplate || '' },
+            { label: 'Agent Shared Context Template', text: snap.lorebook?.routerAgentSharedContextTemplate || '' },
+            { label: 'Router System Prompt', text: snap.lorebook?.routerSystemPromptTemplate || '' },
+            { label: 'Combat Profile Guidance (Basic)', text: snap.lorebook?.routerCombatProfileGuidanceBasicTemplate || '' },
+            { label: 'Combat Profile Guidance (Agent)', text: snap.lorebook?.routerCombatProfileGuidanceAgentTemplate || '' },
+            { label: 'Auto-Pass Restriction', text: snap.lorebook?.routerAutoPassRestrictionTemplate || '' },
+            { label: 'Manual-Pass Restriction', text: snap.lorebook?.routerManualPassRestrictionTemplate || '' },
+            { label: 'Existing NPC Chronicle Nudge', text: snap.lorebook?.routerExistingNpcNudgeTemplate || '' },
+            { label: 'Relationship Section (Basic)', text: snap.lorebook?.routerRelSectionBasicTemplate || '' },
+            { label: 'Relationship Section (Agent)', text: snap.lorebook?.routerRelSectionAgentTemplate || '' },
         ];
         const modules = snap.lorebook?.modules || {};
         for (const id of Object.keys(modules).sort()) {
@@ -270,12 +334,48 @@ export function getLivePromptCategoryBlocks(settings, category, opts = {}) {
         const defaults = buildDefaultSettings();
         const blocks = [
             {
-                label: 'Router System Prompt',
-                text: s.routerSystemPromptTemplate ?? defaults.routerSystemPromptTemplate ?? '',
+                label: 'Basic System Prompt',
+                text: s.routerBasicSystemPromptTemplate ?? defaults.routerBasicSystemPromptTemplate ?? '',
             },
             {
                 label: 'Modular Prompt Template',
                 text: s.routerModularPromptTemplate ?? defaults.routerModularPromptTemplate ?? '',
+            },
+            {
+                label: 'Agent Shared Context Template',
+                text: s.routerAgentSharedContextTemplate ?? defaults.routerAgentSharedContextTemplate ?? '',
+            },
+            {
+                label: 'Router System Prompt',
+                text: s.routerSystemPromptTemplate ?? defaults.routerSystemPromptTemplate ?? '',
+            },
+            {
+                label: 'Combat Profile Guidance (Basic)',
+                text: s.routerCombatProfileGuidanceBasicTemplate ?? defaults.routerCombatProfileGuidanceBasicTemplate ?? '',
+            },
+            {
+                label: 'Combat Profile Guidance (Agent)',
+                text: s.routerCombatProfileGuidanceAgentTemplate ?? defaults.routerCombatProfileGuidanceAgentTemplate ?? '',
+            },
+            {
+                label: 'Auto-Pass Restriction',
+                text: s.routerAutoPassRestrictionTemplate ?? defaults.routerAutoPassRestrictionTemplate ?? '',
+            },
+            {
+                label: 'Manual-Pass Restriction',
+                text: s.routerManualPassRestrictionTemplate ?? defaults.routerManualPassRestrictionTemplate ?? '',
+            },
+            {
+                label: 'Existing NPC Chronicle Nudge',
+                text: s.routerExistingNpcNudgeTemplate ?? defaults.routerExistingNpcNudgeTemplate ?? '',
+            },
+            {
+                label: 'Relationship Section (Basic)',
+                text: s.routerRelSectionBasicTemplate ?? defaults.routerRelSectionBasicTemplate ?? '',
+            },
+            {
+                label: 'Relationship Section (Agent)',
+                text: s.routerRelSectionAgentTemplate ?? defaults.routerRelSectionAgentTemplate ?? '',
             },
         ];
         const liveMods = s.routerModules || {};
@@ -419,6 +519,15 @@ const CARTRIDGE_PAYLOAD_KEYS = [
     // ── Lorebook Agent (Researcher/Router) ────────────────────────────────
     'routerSystemPromptTemplate',
     'routerModularPromptTemplate',
+    'routerBasicSystemPromptTemplate',
+    'routerAgentSharedContextTemplate',
+    'routerCombatProfileGuidanceBasicTemplate',
+    'routerCombatProfileGuidanceAgentTemplate',
+    'routerAutoPassRestrictionTemplate',
+    'routerManualPassRestrictionTemplate',
+    'routerExistingNpcNudgeTemplate',
+    'routerRelSectionBasicTemplate',
+    'routerRelSectionAgentTemplate',
     'routerModules',
     'routerCustomTags',
     // ── World Progression ──────────────────────────────────────────────────────
@@ -491,7 +600,14 @@ export const CARTRIDGE_PAYLOAD_GROUPS = [
         id: 'lorebookAgent',
         label: 'Lorebook Agent',
         description: 'Researcher agent system prompt, modular format prompt, module definitions, custom tags',
-        keys: ['routerSystemPromptTemplate', 'routerModularPromptTemplate', 'routerModules', 'routerCustomTags'],
+        keys: [
+            'routerSystemPromptTemplate', 'routerModularPromptTemplate',
+            'routerBasicSystemPromptTemplate', 'routerAgentSharedContextTemplate',
+            'routerCombatProfileGuidanceBasicTemplate', 'routerCombatProfileGuidanceAgentTemplate',
+            'routerAutoPassRestrictionTemplate', 'routerManualPassRestrictionTemplate',
+            'routerExistingNpcNudgeTemplate', 'routerRelSectionBasicTemplate', 'routerRelSectionAgentTemplate',
+            'routerModules', 'routerCustomTags',
+        ],
     },
     {
         id: 'worldProgression',

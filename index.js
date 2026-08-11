@@ -1,6 +1,6 @@
 import { EXAMPLES, COLOR_EXAMPLES, DEFAULT_STOCK_PROMPTS, RT_PROMPTS, BLOCK_ICONS, BLOCK_ORDER, PAGE_SIZE, NO_PAGINATE, buildOnboardingXpHint, buildOnboardingTimeHint, buildStartingGearHint, buildOnboardingActiveBlocks, buildCombatAndSkillScalingHint, resolveTimePromptKey, resolveTimePromptDisplayTag, buildCyoaPrompt, DEFAULT_CYOA_SLOTS, refreshCyoaConfigToShipped, formatTimeOfDay } from './constants.js';
-import { MODULE_NAME, DEFAULT_MODULES, MODULE_BOOK_CATEGORY, FULL_REVIEW_STATE_SYSTEM_PROMPT, FULL_REVIEW_USER_PROMPT_SUFFIX, getSettings, getBarBackground, migrateCustomFields, saveChatState, getActiveChatId, writeModuleSchemaBackup, getPendingModuleSchemaBackup, applyModuleSchemaBackup, applyDeletedCustomTagTombstones, recordDeletedCustomTags, clearDeletedCustomTagTombstones, saveProfile, deleteProfile, getEffectiveRouterCampaignPrefix, sanitizeCampaignPrefixString, buildNpcInstruction, loadStockPromptsFromProfile, getNpcRelationshipMax, getNpcRelationshipMaxDefault, clampRelationshipValue, relationshipBarPct, getFriendshipTier, getAffectionTier, getRelTierBadgeStyle, getRelTierDetailedStyle, getRelTierDetailedLabelStyle, applyRelTierBadgeElement, sanitizeRouterState, rebuildAllModuleInstructions, adjustAllStoredTemplatesForTimeFormat, DEFAULT_NPC_SECTIONS, DEFAULT_PC_SECTIONS, computeBundledPromptsFingerprint, computeBundledPromptsFingerprintForSnapshot, normalizeBundledPromptsSnapshot, buildBundledPromptsSnapshot, getSnapshotCategoryBlocks, getPromptCategoryImpactBadge, PROMPT_DEFAULTS_CATEGORIES, PROMPT_DEFAULTS_CATEGORY_LABELS, getDefaultPortraitLocationSystemPrompt, isShippedPortraitLocationSystemPrompt, applyFactoryReset, clearExtensionLocalStorageUiState, stripChatStateGlobalUiPrefs, buildStateTrackerRelationshipCommandInstruction, extractStateTrackerRelationshipCommands, getRelationshipUpdateMode, RELATIONSHIP_UPDATE_MODES } from './state-manager.js';
-import { snapshotChatSetup, chatSetupsMatch, syncChatSetupCatalogs, removeChatSetupCatalogEntries } from './src/state/chat-setup.js';
+import { MODULE_NAME, DEFAULT_MODULES, MODULE_BOOK_CATEGORY, FULL_REVIEW_STATE_SYSTEM_PROMPT, FULL_REVIEW_USER_PROMPT_SUFFIX, getSettings, getBarBackground, migrateCustomFields, saveChatState, getActiveChatId, writeModuleSchemaBackup, getPendingModuleSchemaBackup, applyModuleSchemaBackup, applyDeletedCustomTagTombstones, recordDeletedCustomTags, clearDeletedCustomTagTombstones, saveProfile, deleteProfile, getEffectiveRouterCampaignPrefix, sanitizeCampaignPrefixString, buildNpcInstruction, loadStockPromptsFromProfile, getNpcRelationshipMax, getNpcRelationshipMaxDefault, clampRelationshipValue, relationshipBarPct, getFriendshipTier, getAffectionTier, getRelTierBadgeStyle, getRelTierDetailedStyle, getRelTierDetailedLabelStyle, applyRelTierBadgeElement, sanitizeRouterState, rebuildAllModuleInstructions, adjustAllStoredTemplatesForTimeFormat, DEFAULT_NPC_SECTIONS, DEFAULT_PC_SECTIONS, computeBundledPromptsFingerprint, computeBundledPromptsFingerprintForSnapshot, normalizeBundledPromptsSnapshot, buildBundledPromptsSnapshot, getSnapshotCategoryBlocks, getPromptCategoryImpactBadge, PROMPT_DEFAULTS_CATEGORIES, PROMPT_DEFAULTS_CATEGORY_LABELS, getDefaultPortraitLocationSystemPrompt, isShippedPortraitLocationSystemPrompt, applyFactoryReset, clearExtensionLocalStorageUiState, stripChatStateGlobalUiPrefs, buildStateTrackerRelationshipCommandInstruction, extractStateTrackerRelationshipCommands, getRelationshipUpdateMode, RELATIONSHIP_UPDATE_MODES, resetLorebookPromptTemplates, writeCriticalSettingsBackup, stampCriticalSettingsSynced, applyCriticalSettingsBackup } from './state-manager.js';
+import { snapshotChatSetup, chatSetupsMatch, syncChatSetupCatalogs, removeChatSetupCatalogEntries, clearChatBoundActivations } from './src/state/chat-setup.js';
 import { buildDirectPromptSystemPrompt, DIRECT_PROMPT_SYSTEM_MODES } from './src/state/direct-prompt-system.js';
 import { diffTextLines, diffHasChanges } from './prompt-diff.js';
 import { sendStateRequest, fetchOllamaModels, fetchOpenAIModels, testOpenAIConnection, getConnectionProfiles, getCurrentCompletionPreset, setCompletionPreset, syncCombatProfile, resetCombatProfileOverride, isCombatActive } from './llm-client.js';
@@ -10,7 +10,7 @@ import { renderSubFieldByRule, tryRenderMarker, renderCustomBlockLine, stripMemo
 import { unregisterLogQuestTool, checkQuestDeadlines, renderQuestsAsPlainText } from './quests.js';
 import { initializeDebugViewer, toggleDebugViewer } from './debug-viewer.js';
 import { installSwipeSchedulerDebug } from './swipe-scheduler-debug.js';
-import { runRouterPass, rollbackRouterPass, reapplyRouterPass, getLorebookManifest, deleteLorebookEntry, updateLorebookEntry, disableManagedEntries, isRouterRunning, stopRouterPass, purgeWorldHistoryForChat, setLorebookEntryPinned } from './router.js';
+import { runRouterPass, rollbackRouterPass, reapplyRouterPass, captureRouterLoreState, getLorebookManifest, deleteLorebookEntry, updateLorebookEntry, disableManagedEntries, isRouterRunning, stopRouterPass, purgeWorldHistoryForChat, setLorebookEntryPinned } from './router.js';
 import { getRequestHeaders } from '../../../../script.js';
 import { fileToDataUrl, scaleImageTo512Square, scaleImageToLandscape, applyPortraitData, applyLocationImageData, renamePortraitEntity, reconcileMemoPortraitRenames, generatePortraitPrompt, generateNpcPortraitPrompt, generateLocationImagePrompt, showPortraitPromptPopup, generatePortraitDirect, autoGeneratePartyPortraits, removeAllPortraits, checkAndTriggerAutoGenerations, autoGenerateEnemyPortraits, forceCheckAutoGenerations, resetAutoGenerationTracking, resetRealtimeLocationGenerationFailure, stopRealtimeLocationGeneration, resolveLocationImageWithMeta, normalizeLocationPath, buildLocationPath, getLinkedPlayerCharacter, resolvePortraitSrcForPlayerCharacter, imageGenToast, triggerBackgroundPortraitGeneration } from './portraits.js';
 import { buildImmersionSceneState, renderImmersionViewHtml, getCurrentLocationText, loadLocationEntryByPath, loadNpcEntryByKey, maybeAutoGenerateImmersionSceneArt, runRealtimeSceneArtCheck, resetImmersionSceneArtTracking, hydrateImmersionSceneArtPath } from './immersion.js';
@@ -33,6 +33,15 @@ import { createMemoRecoveryManager } from './src/features/recovery/memo-recovery
 import { runtimeState } from './src/app/runtime-state.js';
 import { createPanel as buildPanel } from './src/ui/panel/panel-builder.js';
 import { createChatStateLoader } from './src/features/chat/chat-state-loader.js';
+import { cloneCampaignStackToPrefix } from './src/features/chat/clone-campaign-stack.js';
+import { branchCampaignChat, isBranchSeedInProgress } from './src/features/chat/branch-campaign.js';
+import { onChatRenamedMigrate } from './src/features/chat/chat-rename-migrate.js';
+import {
+    initSettingsOverlay,
+    openSettingsOverlay,
+    closeSettingsOverlay,
+    getSettingsOverlayRoot,
+} from './src/ui/settings-overlay.js';
 import { restoreEscapedCyoaChoiceMarkup } from './src/ui/panel/cyoa-markup.js';
 import { captureXpGainAnimationState, playXpGainAnimation } from './src/ui/panel/xp-gain-animation.js';
 import { captureBarChangeAnimationState, playBarChangeAnimations } from './src/ui/panel/bar-change-animation.js';
@@ -629,6 +638,8 @@ export function saveSettings(force = false, delay = 0) {
                 // Stamp before the write so a successful disk save carries its own time;
                 // if the write races/aborts, boot still sees the older stamp from disk.
                 s.memoPersistedAt = Date.now();
+                // Sync WAL for displayGroups / prompt-ack — survives cancelled saves on code-edit reload.
+                stampCriticalSettingsSynced(s, writeCriticalSettingsBackup(s));
                 if (useForce) {
                     const saveFn = await resolveCoreSaveSettings();
                     if (saveFn) await saveFn();
@@ -939,7 +950,7 @@ function applyChatTimeFormatSettings(saved) {
     s.initialDate = saved?.initialDate ?? 'Day 1';
     s.initialTime = saved?.initialTime ?? '08:00 AM';
     if (s.routerModules?.npc) {
-        s.routerModules.npc.instruction = buildNpcInstruction(s.npcMajorWords, s.npcMinorWords, false);
+        s.routerModules.npc.instruction = buildNpcInstruction(s.npcMajorWords, s.npcMinorWords, false, s);
     }
     syncTimeFormatSettingsUi(s);
 }
@@ -962,8 +973,9 @@ export function setUseDdMmYyFormat(isDate) {
     }
     rebuildAllModuleInstructions(s);
     adjustAllStoredTemplatesForTimeFormat(s);
-    $('#rpg_tracker_router_prompt').val(s.routerSystemPromptTemplate);
+    $('#rpg_tracker_router_prompt').val(s.routerBasicMode ? s.routerBasicSystemPromptTemplate : s.routerSystemPromptTemplate);
     $('#rpg_tracker_router_modular_prompt').val(s.routerModularPromptTemplate);
+    $('#rpg_tracker_router_agent_context').val(s.routerAgentSharedContextTemplate);
     refreshOrderList();
     if (typeof globalThis._rpgRenderAgentModules === 'function') {
         globalThis._rpgRenderAgentModules();
@@ -988,8 +1000,9 @@ export function setUse24hTime(is24h) {
     if (parsedMins != null) s.initialTime = formatTimeOfDay(parsedMins, s.use24hTime);
     rebuildAllModuleInstructions(s);
     adjustAllStoredTemplatesForTimeFormat(s);
-    $('#rpg_tracker_router_prompt').val(s.routerSystemPromptTemplate);
+    $('#rpg_tracker_router_prompt').val(s.routerBasicMode ? s.routerBasicSystemPromptTemplate : s.routerSystemPromptTemplate);
     $('#rpg_tracker_router_modular_prompt').val(s.routerModularPromptTemplate);
+    $('#rpg_tracker_router_agent_context').val(s.routerAgentSharedContextTemplate);
     refreshOrderList();
     if (typeof globalThis._rpgRenderAgentModules === 'function') {
         globalThis._rpgRenderAgentModules();
@@ -1083,10 +1096,21 @@ function syncOnboardingUI() {
 
 
     // Optional Components Sync
-    const mods = { 'loot': '#rt_onboarding_mod_loot', 'random_events': '#rt_onboarding_mod_random_events', 'resting': '#rt_onboarding_mod_resting', 'party_bench': '#rt_onboarding_mod_party_bench', 'CYOA_mode': '#rt_onboarding_mod_cyoa_mode' };
+    const mods = {
+        loot: '#rt_onboarding_mod_loot',
+        random_events: '#rt_onboarding_mod_random_events',
+        resting: '#rt_onboarding_mod_resting',
+        party_bench: '#rt_onboarding_mod_party_bench',
+        dungeon_reality_and_hidden_mapping: '#rt_onboarding_mod_dungeon_reality_and_hidden_mapping',
+        CYOA_mode: '#rt_onboarding_mod_cyoa_mode',
+    };
     for (const [key, id] of Object.entries(mods)) {
         const cb = /** @type {HTMLInputElement|null} */ (onboarding.querySelector(id));
-        if (cb) cb.checked = key === 'CYOA_mode' ? s.syspromptModules?.CYOA_mode === true : !!s.syspromptModules?.[key];
+        if (cb) {
+            cb.checked = key === 'CYOA_mode'
+                ? s.syspromptModules?.CYOA_mode === true
+                : (s.syspromptModules?.[key] ?? true);
+        }
     }
 
     // Time & Date sync — Character Creator + "Other ways to begin" drawer
@@ -1318,29 +1342,26 @@ async function cloneCampaignStack() {
     const s = getSettings();
     const ctx = SillyTavern.getContext();
 
-    // 1. Determine current prefix
     const currentPrefix = s.routerCampaignPrefix || '';
     if (!currentPrefix) {
         toastr['warning']('No campaign prefix is active. Activate the Lorebook Agent and load a chat first.', 'Clone Stack');
         return;
     }
 
-    // 2. Ask user for the new prefix
     let newPrefixRaw = '';
     try {
         newPrefixRaw = await ctx.Popup.show.input(
             'Clone Lorebook Stack',
             `<p>All lorebooks under prefix <strong>${currentPrefix}</strong> will be duplicated.</p>` +
             `<p>Enter the new prefix for the cloned stack (e.g. <code>Eldoria_Branch1</code>).<br>` +
-            `<small>After cloning, create your branch chat using the same name so the framework links automatically.</small></p>`,
+            `<small>Tip: use <b>General &amp; Visuals → Core &amp; Branching → Branch Campaign</b> to create the ST branch and copy Multihog data in one step.</small></p>`,
             ''
         );
     } catch (_) {
-        // User cancelled
         return;
     }
 
-    if (!newPrefixRaw && newPrefixRaw !== 0) return; // cancelled
+    if (!newPrefixRaw && newPrefixRaw !== 0) return;
     const newPrefix = sanitizeCampaignPrefixString(String(newPrefixRaw).trim());
     if (!newPrefix) {
         toastr['warning']('New prefix cannot be empty or contain only special characters.', 'Clone Stack');
@@ -1351,89 +1372,24 @@ async function cloneCampaignStack() {
         return;
     }
 
-    // 3. Discover all books that belong to the current prefix
-    const reg = await refreshWorldInfoRegistry();
-    const allNames = resolveAllWorldNames(ctx, reg);
-    const matchingBooks = allNames.filter(n => bookBelongsToPrefix(n, currentPrefix));
+    toastr['info'](`Cloning lorebooks to prefix "${newPrefix}"…`, 'Clone Stack');
+    const result = await cloneCampaignStackToPrefix(currentPrefix, newPrefix);
 
-    if (matchingBooks.length === 0) {
+    if (result.matchingCount === 0) {
         toastr['warning'](`No lorebooks found for prefix "${currentPrefix}". Nothing to clone.`, 'Clone Stack');
         return;
     }
 
-    toastr['info'](`Cloning ${matchingBooks.length} lorebook(s) to prefix "${newPrefix}"…`, 'Clone Stack');
-
-    // 4. Clone each book under the new prefix name
-    let cloned = 0;
-    const errors = [];
-
-    for (const bookName of matchingBooks) {
-        // Derive new name: replace the old prefix at the start of the book name
-        let newBookName;
-        if (bookName === currentPrefix) {
-            // Root book: OldPrefix → NewPrefix
-            newBookName = newPrefix;
-        } else {
-            // Suffixed book: OldPrefix_Suffix → NewPrefix_Suffix
-            const suffix = bookName.slice(currentPrefix.length); // includes leading '_'
-            newBookName = newPrefix + suffix;
-        }
-
-        // Load existing book data
-        let bookData = null;
-        try {
-            bookData = await ctx.loadWorldInfo(bookName);
-        } catch (e) {
-            errors.push(`Failed to load "${bookName}": ${e?.message || e}`);
-            continue;
-        }
-
-        if (!bookData) {
-            errors.push(`Could not read "${bookName}" — skipping.`);
-            continue;
-        }
-
-        // Deep clone and update name
-        const cloneData = JSON.parse(JSON.stringify(bookData));
-        cloneData.name = newBookName;
-
-        // Write to disk via the raw API (same pattern as router.js)
-        try {
-            const res = await fetch('/api/worldinfo/edit', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({ name: newBookName, data: cloneData }),
-            });
-            if (!res.ok) {
-                errors.push(`HTTP ${res.status} saving "${newBookName}"`);
-                continue;
-            }
-            // Sync ST in-memory cache
-            if (typeof ctx.saveWorldInfo === 'function') {
-                try { await ctx.saveWorldInfo(newBookName, cloneData); } catch (_) { /* non-fatal */ }
-            }
-            cloned++;
-        } catch (e) {
-            errors.push(`Failed to write "${newBookName}": ${e?.message || e}`);
-        }
-    }
-
-    // 5. Refresh ST's world-info list so the new books appear immediately
-    if (typeof ctx.updateWorldInfoList === 'function') {
-        try { await ctx.updateWorldInfoList(); } catch (_) { /* non-fatal */ }
-    }
-
-    // 6. Report result
-    if (errors.length === 0) {
+    if (result.errors.length === 0) {
         toastr['success'](
-            `Cloned ${cloned} lorebook${cloned === 1 ? '' : 's'} → prefix "${newPrefix}".\n` +
-            `Now create a branch named "${newPrefix}" (or set the prefix override to "${newPrefix}") to link it.`,
+            `Cloned ${result.cloned} lorebook${result.cloned === 1 ? '' : 's'} → prefix "${newPrefix}".\n` +
+            `Use Branch Campaign, or create a branch chat whose sanitized name matches "${newPrefix}".`,
             'Clone Stack',
             { timeOut: 8000 }
         );
     } else {
         toastr['warning'](
-            `Cloned ${cloned}/${matchingBooks.length} books. Errors:\n${errors.join('\n')}`,
+            `Cloned ${result.cloned}/${result.matchingCount} books. Errors:\n${result.errors.join('\n')}`,
             'Clone Stack',
             { timeOut: 10000 }
         );
@@ -1497,6 +1453,8 @@ const loadChatState = createChatStateLoader({
  * Narrator Configuration intentionally remains untouched: the departing chat was
  * already snapshotted before this runs, so a new chat inherits that configuration
  * and receives its own independent snapshot on the next save.
+ * Chat-bound Game Systems / modules / snippets start inactive; GLOBAL items keep
+ * their shared enablement.
  */
 function resetUnseenChatState(s) {
     s.currentMemo = '';
@@ -1525,6 +1483,8 @@ function resetUnseenChatState(s) {
     if (typeof globalThis._rpgApplyAdventureCompanionSnapshot === 'function') {
         globalThis._rpgApplyAdventureCompanionSnapshot(null, { resetIfMissing: true });
     }
+
+    if (s.chatSetupLinkEnabled) clearChatBoundActivations(s);
 
     refreshOrderList();
     if (s.chatSetupLinkEnabled && typeof globalThis._rpgSyncSettingsUi === 'function') {
@@ -1698,6 +1658,11 @@ function onChatChanged(newChatId) {
         return;
     }
 
+    // A later CHAT_RENAMED may prove this switch was a rename. Only the exact
+    // unseen-chat reset below is safe to replace; every other collision must be
+    // preserved as potentially real campaign data.
+    runtimeState.pendingUnseenChatReset = null;
+
     // Flush Adventure Companion under the departing chat BEFORE flipping currentChatId /
     // loading the arriving partition (history is per-chat, including when Chat Link is off).
     if (typeof globalThis._rpgFlushAdventureCompanionForChat === 'function' && oldChatId) {
@@ -1851,7 +1816,19 @@ function onChatChanged(newChatId) {
 
     const found = loadChatState(resolvedId);
     if (!found && !s.chatStates?.[resolvedId]) {
-        resetUnseenChatState(s);
+        // Branch Campaign seeds the partition before open; never wipe a just-seeded branch.
+        // Rename: CHAT_CHANGED may briefly reset before CHAT_RENAMED migrates old → new.
+        // Record that exact reset so the migrator can replace only this known shell;
+        // ambiguous or substantive destination collisions are always preserved.
+        if (isBranchSeedInProgress(resolvedId)) {
+            const retried = loadChatState(resolvedId);
+            if (!retried && !s.chatStates?.[resolvedId]) {
+                console.warn('[RPG Tracker] Branch seed guard active but partition missing for', resolvedId);
+            }
+        } else {
+            resetUnseenChatState(s);
+            runtimeState.pendingUnseenChatReset = { oldId: oldChatId, newId: resolvedId };
+        }
     } else if (!found && typeof globalThis._rpgLoadAdventureCompanionForChat === 'function') {
         // Partition missing but chatStates entry may exist empty — still hydrate companion map
         globalThis._rpgLoadAdventureCompanionForChat(resolvedId);
@@ -2878,6 +2855,9 @@ async function showComponentsExplanation() {
     )}
                 ${card('⛺', 'Benched Party',
         `Tracks party members who are temporarily away from you — hospitalized, scouting ahead, captured, sent on a side task, etc. — in a separate [BENCHED PARTY] roster while reunion remains plausible. The GM is told what this means so it won't narrate them back at your side until the story brings them back on-screen. Benched members become eligible for off-screen simulation updates via World Reports (🌍), allowing the simulator to advance their individual subplots in the background. Turn off if you don't want temporary separations tracked separately from your active party.`
+    )}
+                ${card('🗺️', 'Dungeon Reality Mapping (Experimental)',
+        `When you enter a dungeon, ruin, stronghold, lair, or similar high-risk site, the narrator builds a full hidden map of the location before exploration, then resolves traps, stealth, sight lines, and enemies against that map — revealing only what you could actually perceive.`
     )}
                 ${card('🧭', 'CYOA Mode',
         `Choose-your-own-adventure style: the narrator ends outputs with numbered courses of action and fitting emojis so you can pick what to do next.`
@@ -3928,6 +3908,7 @@ function createPanel() {
         buildLocationPath,
         buildNpcInstruction,
         canResizePanels,
+        captureRouterLoreState,
         checkAndTriggerAutoGenerations,
         clampFloatingPanelToViewport,
         resolveViewportClampedGeometry,
@@ -4204,7 +4185,7 @@ const RENDER_HINTS = {
     COMBAT: {
         label: 'Entity Rows — HP Bars (Enemies)',
         description: 'Entity rows with COMBAT ROUND header. Martial: weapon Att/def. Caster: Spell Atk + Spell DC + backup weapon, then Cantrips/Level N Spells lines (same rendering as PARTY).',
-        example: 'COMBAT ROUND 1\nCultist Acolyte: 15/15 HP\nAtt/def: Spell Atk +4 | Spell DC 14 | Dagger (1 attack, +1 / 1d4-1 P) | Robes (AC: 11)\nSaves: Fort +1, Ref +2, Will +3\nAbilities: Spellcasting\nSpells: Cantrips: Fire Bolt, Prestidigitation\nSpells: Level 1 (2/2): Magic Missile, Shield\nOther: Soldier Tier Spellcaster\nStatus: Healthy\n\nElite Enforcer: 42/42 HP\nAtt/def: Warhammer (2 attacks, +9/+4 / 1d10+4 B) | Plate Armor (AC: 17)\nSaves: Fort +5, Ref +3, Will +4\nAbilities: Brutal Strike (On a Warhammer hit, deal +1d10 Bludgeoning damage and force a Fort DC 16 save or knock the target prone; 2/2)\nOther: Elite Tier\nStatus: Healthy'
+        example: 'COMBAT ROUND 1\nCultist Acolyte: 15/15 HP\nAtt/def: Spell Atk +4 | Spell DC 14 | Dagger (1 attack, +1 / 1d4-1 Piercing) | Robes (AC: 11)\nSaves: Fort +1, Ref +2, Will +3\nAbilities: Spellcasting\nSpells: Cantrips: Fire Bolt, Prestidigitation\nSpells: Level 1 (2/2): Magic Missile, Shield\nOther: Soldier Tier Spellcaster\nStatus: Healthy\n\nElite Enforcer: 42/42 HP\nAtt/def: Warhammer (2 attacks, +9/+4 / 1d10+4 Bludgeoning) | Plate Armor (AC: 17)\nSaves: Fort +5, Ref +3, Will +4\nAbilities: Brutal Strike (On a Warhammer hit, deal +1d10 Bludgeoning damage and force a Fort DC 16 save or knock the target prone; 2/2)\nOther: Elite Tier\nStatus: Healthy'
     },
     SPELLS: {
         label: 'Spell Pips — Slot Tracker',
@@ -4740,26 +4721,20 @@ function setSettingsDrawerOpen(drawer) {
 }
 
 function openConnectionsModelsSettings(targetKey = '') {
-    const extensionsContent = document.getElementById('rm_extensions_block');
-    if (extensionsContent?.classList.contains('closedDrawer')) {
-        document.querySelector('#extensions-settings-button > .drawer-toggle')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    }
+    openSettingsOverlay('connections');
 
-    const settingsRoot = document.querySelector('.rpg-tracker-settings');
-    const frameworkDrawer = settingsRoot?.querySelector(':scope > .inline-drawer');
     const connectionsDrawer = document.getElementById('rpg_connections_models_drawer');
-    setSettingsDrawerOpen(frameworkDrawer);
     setSettingsDrawerOpen(connectionsDrawer);
 
     const targetDrawer = targetKey === 'character_creation'
         ? document.getElementById('rpg_character_creation_connection_drawer')
-        : document.querySelector(`.rt-central-connection-drawer[data-connection-key="${targetKey}"]`);
+        : document.querySelector(`#rt-settings-overlay .rt-central-connection-drawer[data-connection-key="${targetKey}"]`);
     setSettingsDrawerOpen(targetDrawer);
     setTimeout(() => (targetDrawer || connectionsDrawer)?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }), 80);
 }
 
 function organizeConnectionSettingsUI() {
-    const settingsRoot = document.querySelector('.rpg-tracker-settings');
+    const settingsRoot = getSettingsOverlayRoot() || document.querySelector('.rpg-tracker-settings');
     if (!settingsRoot) return;
 
     for (const definition of CONNECTION_SETTINGS_UI) {
@@ -4796,6 +4771,9 @@ function organizeConnectionSettingsUI() {
     // while the fresh copy also loads). Remove any stale panel/settings first.
     document.getElementById('rpg-tracker-panel')?.remove();
     document.querySelectorAll('.rpg-tracker-settings').forEach(el => el.remove());
+    document.querySelectorAll('.rpg-tracker-settings-stub').forEach(el => el.remove());
+    document.getElementById('rt-settings-overlay')?.remove();
+    closeSettingsOverlay();
 
     const ctx = SillyTavern.getContext();
     const { eventSource, event_types, renderExtensionTemplateAsync } = ctx;
@@ -4878,7 +4856,15 @@ function organizeConnectionSettingsUI() {
         setPillDeselectHandler: (handler) => { _pillDeselectHandler = handler; },
     });
 
-    getSettings();
+    {
+        const earlySettings = getSettings();
+        // Heal displayGroups / prompt-ack before the Prompt Defaults dialog or UI bind.
+        // Disk settings.json saves (~12MB) are often cancelled when reloading after code edits;
+        // this sync localStorage WAL restores the last intentional change.
+        if (applyCriticalSettingsBackup(earlySettings)) {
+            void saveSettings(true);
+        }
+    }
     // Recover BEFORE any init saveSettings can clobber the localStorage backup.
     {
         const earlyChatId = ctx.chatId || ctx.getCurrentChatId?.() || null;
@@ -4890,34 +4876,58 @@ function organizeConnectionSettingsUI() {
     try {
         // Load Settings UI using the dynamic folder name
         // Use a cache-busting parameter to ensure we get the fresh file from the server
-        const html = await renderExtensionTemplateAsync(`third-party/${FOLDER_NAME}`, 'settings', { v: Date.now() });
-        // Third-party plugins should go to extensions_settings2 (right column) if available
+        const cacheBust = { v: Date.now() };
+        const settingsHtml = await renderExtensionTemplateAsync(`third-party/${FOLDER_NAME}`, 'settings', cacheBust);
+        const stubHtml = await renderExtensionTemplateAsync(`third-party/${FOLDER_NAME}`, 'settings-stub', cacheBust);
+
+        // Lightweight stub stays in the extensions drawer; full settings go into the floating window.
         if ($('#extensions_settings2').length) {
-            $('#extensions_settings2').append(html);
+            $('#extensions_settings2').append(stubHtml);
         } else {
-            $('#extensions_settings').append(html);
+            $('#extensions_settings').append(stubHtml);
         }
+
+        // Inject settings into the overlay BEFORE ID-based jQuery bindings below.
+        initSettingsOverlay(settingsHtml, { folderName: FOLDER_NAME });
 
         organizeConnectionSettingsUI();
 
-        // Bind drawer toggles ONLY for our own content to avoid global conflicts
-        $('.rpg-tracker-settings').on('click', '.inline-drawer-toggle', function (e) {
+        // Bind drawer toggles ONLY for our own content to avoid global conflicts.
+        // IMPORTANT: expand each comma-root before appending `.inline-drawer-toggle`.
+        // `#a, #b .toggle` would make EVERY click inside `#a` match and preventDefault
+        // checkboxes while flipping every chevron under the settings root.
+        const settingsDrawerToggleSelector = [
+            '#rt-settings-overlay .rpg-tracker-settings .inline-drawer-toggle',
+            '.rpg-tracker-settings-stub .inline-drawer-toggle',
+        ].join(', ');
+        $(document).off('click.rpgTrackerSettingsDrawers');
+        $(document).on('click.rpgTrackerSettingsDrawers', settingsDrawerToggleSelector, function (e) {
+            // Never steal clicks from controls that live in a header row.
+            if ($(e.target).closest('input, select, textarea, button, a, label.checkbox_label').length) {
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
             const drawer = $(this).closest('.inline-drawer');
+            if (!drawer.length) return;
             const content = drawer.find('> .inline-drawer-content');
             drawer.toggleClass('open');
             jqueryToggleSlide(content, drawer.hasClass('open'));
             $(this).find('.inline-drawer-icon').toggleClass('down');
         });
-        $('.rpg-tracker-settings').on('click', '.rt-connection-shortcut-button', function (e) {
+        $(document).on('click.rpgTrackerSettingsDrawers', '#rt-settings-overlay .rt-connection-shortcut-button', function (e) {
             e.preventDefault();
             e.stopPropagation();
             openConnectionsModelsSettings(String($(this).data('connectionTarget') || ''));
         });
+        $('#rpg_tracker_open_settings').off('click').on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openSettingsOverlay();
+        });
 
         const settings = getSettings();
-        bindCharacterCreationConnectionSettings(document.querySelector('.rpg-tracker-settings'));
+        bindCharacterCreationConnectionSettings(getSettingsOverlayRoot() || document.querySelector('.rpg-tracker-settings'));
         bindAdventureCompanionSettingsDrawer();
         await bindFeatureConnectionSettings({
             uiPrefix: 'rpg_adventure_companion',
@@ -5109,29 +5119,32 @@ function organizeConnectionSettingsUI() {
                 target.lastResetVersion = currentVersion;
                 target.lastSeenPromptDefaultsFingerprint = currentFingerprint;
                 target.lastSeenPromptDefaultsSnapshot = currentSnapshot;
+                // Sync first — reload during the 12MB disk write must not resurrect the dialog.
+                stampCriticalSettingsSynced(target, writeCriticalSettingsBackup(target));
+            };
+
+            const acknowledgePromptDefaults = async (target) => {
+                persistPromptDefaultsAck(target);
+                // This acknowledgement controls whether the dialog reappears on
+                // the next load, so persist it immediately instead of relying on
+                // the host's debounced settings save.
+                await saveSettings(true);
             };
 
             if (!settings.lastResetVersion) {
                 // Fresh install — record version and defaults fingerprint silently.
-                persistPromptDefaultsAck(settings);
-                saveSettings();
+                void acknowledgePromptDefaults(settings);
             } else if (!storedFingerprint) {
                 // Existing install before fingerprint tracking — adopt current defaults without prompting.
-                persistPromptDefaultsAck(settings);
-                saveSettings();
+                void acknowledgePromptDefaults(settings);
             } else if (storedFingerprint === currentFingerprint
                 && settings.lastSeenPromptDefaultsFingerprint !== currentFingerprint) {
                 // Pre-format-neutral snapshots can contain user-selected calendar/clock
                 // examples. They represent the same shipped defaults, so upgrade the
                 // acknowledgement silently instead of showing a false update prompt.
-                persistPromptDefaultsAck(settings);
-                saveSettings();
+                void acknowledgePromptDefaults(settings);
             } else if (storedFingerprint !== currentFingerprint) {
                 syncPromptDefaultsUpgradeButton();
-                const acknowledgePromptDefaults = (fresh) => {
-                    persistPromptDefaultsAck(fresh);
-                    saveSettings();
-                };
 
                 if (settings.autoResetPromptsOnUpdate) {
                     // Silently reset everything automatically
@@ -5167,8 +5180,8 @@ function organizeConnectionSettingsUI() {
                             if ($corePromptEl.length) $corePromptEl.val(sTempTracker.systemPromptTemplate);
                             if ($suffixPromptEl.length) $suffixPromptEl.val(sTempTracker.userPromptSuffix);
                         }
-                        $('#rpg_tracker_npc_major_words').val(sTempTracker.npcMajorWords ?? 25);
-                        $('#rpg_tracker_npc_minor_words').val(sTempTracker.npcMinorWords ?? 15);
+                        $('#rpg_tracker_npc_major_words').val(sTempTracker.npcMajorWords ?? 225);
+                        $('#rpg_tracker_npc_minor_words').val(sTempTracker.npcMinorWords ?? 135);
                         $('#rpg_tracker_npc_rel_max_default').val(getNpcRelationshipMaxDefault(sTempTracker));
                         $('#rpg_tracker_npc_portraits').prop('checked', sTempTracker.npcPortraits !== false);
                         syncNpcPortraitDependentUi(sTempTracker);
@@ -5185,14 +5198,11 @@ function organizeConnectionSettingsUI() {
                         fresh.pcCoreSections = JSON.parse(JSON.stringify(DEFAULT_PC_SECTIONS));
 
                         // 4. Lorebook Agent
-                        if (extensionSettings[MODULE_NAME]) {
-                            delete extensionSettings[MODULE_NAME].routerSystemPromptTemplate;
-                            delete extensionSettings[MODULE_NAME].routerModularPromptTemplate;
-                        }
+                        resetLorebookPromptTemplates(fresh, 'all');
                         for (const [id, def] of Object.entries(DEFAULT_MODULES)) {
                             if (fresh.routerModules && fresh.routerModules[id]) {
                                 if (id === 'npc') {
-                                    fresh.routerModules[id].instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false);
+                                    fresh.routerModules[id].instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false, fresh);
                                 } else {
                                     fresh.routerModules[id].instruction = def.instruction;
                                 }
@@ -5203,20 +5213,7 @@ function organizeConnectionSettingsUI() {
                             globalThis._rpgRenderAgentModules();
                         }
                         const sTemp = getSettings();
-                        const $promptEl = $('#rpg_tracker_router_prompt');
-                        if ($promptEl.length) {
-                            $promptEl.val(sTemp.routerSystemPromptTemplate).trigger('input');
-                            if (typeof (/** @type {any} */ ($promptEl)).trigger === 'function') {
-                                (/** @type {any} */ ($promptEl)).trigger('autosize.resize');
-                            }
-                        }
-                        const $modularEl = $('#rpg_tracker_router_modular_prompt');
-                        if ($modularEl.length) {
-                            $modularEl.val(sTemp.routerModularPromptTemplate).trigger('input');
-                            if (typeof (/** @type {any} */ ($modularEl)).trigger === 'function') {
-                                (/** @type {any} */ ($modularEl)).trigger('autosize.resize');
-                            }
-                        }
+                        syncRouterPromptUi();
 
                         // 5. World Progression
                         if (extensionSettings[MODULE_NAME]) {
@@ -5232,7 +5229,7 @@ function organizeConnectionSettingsUI() {
                             $wpSkelPromptEl.val(sTemp.worldProgressionSkeletonSystemPrompt).trigger('input');
                         }
 
-                        acknowledgePromptDefaults(fresh);
+                        await acknowledgePromptDefaults(fresh);
                         toastr['info'](`Prompts auto-updated to latest defaults (v${currentVersion}).`, 'RPG Tracker');
                         console.log(`[RPG Tracker] Automatically reset all prompts/sections to defaults for version ${currentVersion}.`);
                     })();
@@ -5455,8 +5452,8 @@ function organizeConnectionSettingsUI() {
                                         if ($corePromptEl.length) $corePromptEl.val(sTempTracker.systemPromptTemplate);
                                         if ($suffixPromptEl.length) $suffixPromptEl.val(sTempTracker.userPromptSuffix);
                                     }
-                                    $('#rpg_tracker_npc_major_words').val(sTempTracker.npcMajorWords ?? 25);
-                                    $('#rpg_tracker_npc_minor_words').val(sTempTracker.npcMinorWords ?? 15);
+                                    $('#rpg_tracker_npc_major_words').val(sTempTracker.npcMajorWords ?? 225);
+                                    $('#rpg_tracker_npc_minor_words').val(sTempTracker.npcMinorWords ?? 135);
                                     $('#rpg_tracker_npc_rel_max_default').val(getNpcRelationshipMaxDefault(sTempTracker));
                                     $('#rpg_tracker_npc_portraits').prop('checked', sTempTracker.npcPortraits !== false);
                                     syncNpcPortraitDependentUi(sTempTracker);
@@ -5476,21 +5473,18 @@ function organizeConnectionSettingsUI() {
                                     fresh.pcCoreSections = JSON.parse(JSON.stringify(DEFAULT_PC_SECTIONS));
                                     // Keep the live Lorebook NPC instruction in sync even if lorebook wasn't selected.
                                     if (!loreReset && fresh.routerModules?.npc) {
-                                        fresh.routerModules.npc.instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false);
+                                        fresh.routerModules.npc.instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false, fresh);
                                     }
                                     resetCount++;
                                     console.log('[RPG Tracker] NPC/PC core sections reset to defaults.');
                                 }
 
                                 if (loreReset) {
-                                    if (extensionSettings[MODULE_NAME]) {
-                                        delete extensionSettings[MODULE_NAME].routerSystemPromptTemplate;
-                                        delete extensionSettings[MODULE_NAME].routerModularPromptTemplate;
-                                    }
+                                    resetLorebookPromptTemplates(fresh, 'all');
                                     for (const [id, def] of Object.entries(DEFAULT_MODULES)) {
                                         if (fresh.routerModules && fresh.routerModules[id]) {
                                             if (id === 'npc') {
-                                                fresh.routerModules[id].instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false);
+                                                fresh.routerModules[id].instruction = buildNpcInstruction(fresh.npcMajorWords, fresh.npcMinorWords, false, fresh);
                                             } else {
                                                 fresh.routerModules[id].instruction = def.instruction;
                                             }
@@ -5500,21 +5494,7 @@ function organizeConnectionSettingsUI() {
                                     if (typeof globalThis._rpgRenderAgentModules === 'function') {
                                         globalThis._rpgRenderAgentModules();
                                     }
-                                    const sTemp = getSettings();
-                                    const $promptEl = $('#rpg_tracker_router_prompt');
-                                    if ($promptEl.length) {
-                                        $promptEl.val(sTemp.routerSystemPromptTemplate).trigger('input');
-                                        if (typeof (/** @type {any} */ ($promptEl)).trigger === 'function') {
-                                            (/** @type {any} */ ($promptEl)).trigger('autosize.resize');
-                                        }
-                                    }
-                                    const $modularEl = $('#rpg_tracker_router_modular_prompt');
-                                    if ($modularEl.length) {
-                                        $modularEl.val(sTemp.routerModularPromptTemplate).trigger('input');
-                                        if (typeof (/** @type {any} */ ($modularEl)).trigger === 'function') {
-                                            (/** @type {any} */ ($modularEl)).trigger('autosize.resize');
-                                        }
-                                    }
+                                    syncRouterPromptUi();
                                     resetCount++;
                                     console.log('[RPG Tracker] Lorebook Agent prompts reset to defaults.');
                                 }
@@ -5537,7 +5517,7 @@ function organizeConnectionSettingsUI() {
                                     console.log('[RPG Tracker] World progression prompts reset to defaults.');
                                 }
 
-                                acknowledgePromptDefaults(fresh);
+                                await acknowledgePromptDefaults(fresh);
                                 syncPromptDefaultsUpgradeButton();
 
                                 if (resetCount > 0) {
@@ -5546,7 +5526,7 @@ function organizeConnectionSettingsUI() {
                                     toastr['info']('No prompts were selected for reset.', 'RPG Tracker');
                                 }
                             } else {
-                                acknowledgePromptDefaults(fresh);
+                                await acknowledgePromptDefaults(fresh);
                                 syncPromptDefaultsUpgradeButton();
                                 toastr['info']('Kept custom — no prompts were changed.', 'RPG Tracker');
                             }
@@ -5554,13 +5534,13 @@ function organizeConnectionSettingsUI() {
                         };
                         void _runPromptDefaultsDialog();
                     } else {
-                        acknowledgePromptDefaults(getSettings());
+                        void acknowledgePromptDefaults(getSettings());
                     }
                 }
             } else if (settings.lastResetVersion !== currentVersion) {
                 // Version-only bump — bundled defaults unchanged, no prompt dialog.
                 settings.lastResetVersion = currentVersion;
-                saveSettings();
+                void saveSettings(true);
             }
         }
 
@@ -6170,6 +6150,14 @@ function organizeConnectionSettingsUI() {
             toastr['info']('Restored the browser-local tracker configuration you selected.', 'RPG Tracker', { timeOut: 6000 });
         }
         eventSource.on(event_types.CHAT_CHANGED, onChatChanged);
+        if (event_types.CHAT_RENAMED) {
+            eventSource.on(event_types.CHAT_RENAMED, (detail) => {
+                void onChatRenamedMigrate(detail || {}, {
+                    saveSettings,
+                    loadChatState,
+                });
+            });
+        }
         if (bootChatId && settings.chatLinkEnabled) {
             const restoredBootChat = loadChatState(bootChatId);
             if (!restoredBootChat && !settings.chatStates?.[bootChatId]) resetUnseenChatState(settings);
@@ -6234,6 +6222,7 @@ function organizeConnectionSettingsUI() {
                 // and cannot be cancelled by the unload that's about to happen, unlike the
                 // disk write below. This is the actual safety net; everything after is best-effort.
                 snapshotMemoToLocalStorage(runtimeState.currentChatId);
+                stampCriticalSettingsSynced(s, writeCriticalSettingsBackup(s));
                 // Snapshot chat-linked fields first so loadChatState() on next boot
                 // cannot overwrite live settings with a stale per-chat copy.
                 if (s.chatLinkEnabled && runtimeState.currentChatId) {
@@ -7721,27 +7710,16 @@ RULES:
             delete extensionSettings[MODULE_NAME].blockOrder;
             delete extensionSettings[MODULE_NAME].modules;
 
-            // 3. Reset Lorebook Agent prompts and World Progression prompts
-            delete extensionSettings[MODULE_NAME].routerSystemPromptTemplate;
-            delete extensionSettings[MODULE_NAME].routerModularPromptTemplate;
+            // 3. Reset all Lorebook Agent prompts and World Progression prompts
+            resetLorebookPromptTemplates(freshSettings, 'all');
             delete extensionSettings[MODULE_NAME].worldProgressionSystemPrompt;
             delete extensionSettings[MODULE_NAME].worldProgressionSkeletonSystemPrompt;
 
             // Re-merge defaults
             const finalSettings = getSettings();
 
-            // Update UI elements for Lorebook Agent prompts
-            const $routerPrompt = $('#rpg_tracker_router_prompt');
-            $routerPrompt.val(finalSettings.routerSystemPromptTemplate);
-            if (typeof (/** @type {any} */ ($routerPrompt)).trigger === 'function') {
-                (/** @type {any} */ ($routerPrompt)).trigger('autosize.resize');
-            }
-
-            const $routerModularPrompt = $('#rpg_tracker_router_modular_prompt');
-            $routerModularPrompt.val(finalSettings.routerModularPromptTemplate);
-            if (typeof (/** @type {any} */ ($routerModularPrompt)).trigger === 'function') {
-                (/** @type {any} */ ($routerModularPrompt)).trigger('autosize.resize');
-            }
+            // Update mode-aware Lorebook Agent prompt editors without firing input handlers.
+            syncRouterPromptUi();
 
             // Update UI elements for World Progression prompts
             const $wpPrompt = $('#rpg_world_progression_system_prompt');
@@ -8952,6 +8930,7 @@ RULES:
             { key: 'random_events', id: 'rpg_sysprompt_mod_random_events' },
             { key: 'resting', id: 'rpg_sysprompt_mod_resting' },
             { key: 'party_bench', id: 'rpg_sysprompt_mod_party_bench' },
+            { key: 'dungeon_reality_and_hidden_mapping', id: 'rpg_sysprompt_mod_dungeon_reality_and_hidden_mapping' },
             { key: 'CYOA_mode', id: 'rpg_sysprompt_mod_cyoa_mode' },
             { key: 'quests', id: 'rpg_sysprompt_mod_quests' },
         ];
@@ -9213,7 +9192,19 @@ RULES:
         updateSettingsLorePrefixReadout();
 
         $('#rpg_tracker_router_prefix_override').val(settings.routerCampaignPrefixOverride || '').on('input', function () {
-            settings.routerCampaignPrefixOverride = String($(this).val() || '');
+            const raw = String($(this).val() || '');
+            settings.routerCampaignPrefixOverride = raw;
+            if (raw.trim()) {
+                const ctx = SillyTavern.getContext();
+                settings.routerCampaignPrefixOverrideAnchorChatId = String(
+                    runtimeState.currentChatId || ctx.getCurrentChatId?.() || ctx.chatId || '',
+                );
+            } else {
+                settings.routerCampaignPrefixOverrideAnchorChatId = '';
+            }
+            const ctx = SillyTavern.getContext();
+            const chatId = runtimeState.currentChatId || ctx.getCurrentChatId?.() || ctx.chatId || '';
+            settings.routerCampaignPrefix = getEffectiveRouterCampaignPrefix(chatId);
             saveSettings();
             updateSettingsLorePrefixReadout();
         });
@@ -9237,6 +9228,16 @@ RULES:
             btn.prop('disabled', true);
             try {
                 await cloneCampaignStack();
+            } finally {
+                btn.prop('disabled', false);
+            }
+        });
+
+        $('#rpg_tracker_branch_campaign_btn').on('click', async function () {
+            const btn = $(this);
+            btn.prop('disabled', true);
+            try {
+                await branchCampaignChat({ saveSettings });
             } finally {
                 btn.prop('disabled', false);
             }
@@ -9468,6 +9469,7 @@ RULES:
             settings.routerBasicMode = $(this).prop('checked');
             $('#rt-agent-router-basic').prop('checked', settings.routerBasicMode);
             saveSettings();
+            if (typeof syncRouterPromptUi === 'function') syncRouterPromptUi();
         });
         $('#rpg_tracker_router_native_keyword_activation').prop('checked', settings.routerNativeKeywordActivation).on('change', function () {
             settings.routerNativeKeywordActivation = $(this).prop('checked');
@@ -9533,7 +9535,8 @@ RULES:
             saveSettings();
         });
         $('#rpg_tracker_router_max_activations').val(settings.routerMaxActivations).on('input', function () {
-            settings.routerMaxActivations = parseInt(String($(this).val() || '')) || 8;
+            const val = parseInt(String($(this).val() || '')) || 8;
+            settings.routerMaxActivations = val;
             $('#rt-agent-router-max-activations').val(settings.routerMaxActivations);
             saveSettings();
         });
@@ -9565,28 +9568,28 @@ RULES:
         $('#rpg_tracker_location_images').prop('checked', !!settings.locationImages);
         syncLocationImageDependentUi(settings);
 
-        $('#rpg_tracker_npc_major_words').val(settings.npcMajorWords ?? 25).on('change', function () {
+        $('#rpg_tracker_npc_major_words').val(settings.npcMajorWords ?? 225).on('change', function () {
             // Use 'change' instead of 'input' to only save once the user is done editing.
             // Fall back to the current saved value (not a hardcoded default) if the field is empty.
             const raw = parseInt(String($(this).val() || ''), 10);
-            const val = isNaN(raw) ? (settings.npcMajorWords ?? 25) : raw;
-            settings.npcMajorWords = Math.max(1, Math.min(1000, val));
+            const val = isNaN(raw) ? (settings.npcMajorWords ?? 225) : raw;
+            settings.npcMajorWords = Math.max(1, Math.min(5000, val));
             $(this).val(settings.npcMajorWords); // update display with clamped value
             if (settings.routerModules?.npc) {
-                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false);
+                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false, settings);
             }
             saveSettings();
             if (typeof globalThis._rpgRenderAgentModules === 'function') {
                 globalThis._rpgRenderAgentModules();
             }
         });
-        $('#rpg_tracker_npc_minor_words').val(settings.npcMinorWords ?? 15).on('change', function () {
+        $('#rpg_tracker_npc_minor_words').val(settings.npcMinorWords ?? 135).on('change', function () {
             const raw = parseInt(String($(this).val() || ''), 10);
-            const val = isNaN(raw) ? (settings.npcMinorWords ?? 15) : raw;
-            settings.npcMinorWords = Math.max(1, Math.min(1000, val));
+            const val = isNaN(raw) ? (settings.npcMinorWords ?? 135) : raw;
+            settings.npcMinorWords = Math.max(1, Math.min(5000, val));
             $(this).val(settings.npcMinorWords); // update display with clamped value
             if (settings.routerModules?.npc) {
-                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false);
+                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false, settings);
             }
             saveSettings();
             if (typeof globalThis._rpgRenderAgentModules === 'function') {
@@ -9601,9 +9604,7 @@ RULES:
             const onbRel = document.getElementById('rt_onboarding_mod_npc_rel_bars');
             if (onbRel) onbRel.checked = val;
 
-            if (settings.routerModules?.npc) {
-                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false);
-            }
+            rebuildAllModuleInstructions(settings);
             saveSettings();
             scheduleAutoApply();
             setTimeout(() => {
@@ -9632,14 +9633,14 @@ RULES:
             const raw = parseInt(String($(this).val() || ''), 10);
             const val = isNaN(raw) ? getNpcRelationshipMaxDefault(settings) : raw;
             setNpcRelationshipMaxDefault(val);
+            saveSettings();
         });
         // Note: experimentalNpcImport removed — NPC Creator button is always visible.
         $('#rpg_tracker_ignore_npc_limits').prop('checked', !!settings.ignoreNpcImportLimits).on('change', function () {
             settings.ignoreNpcImportLimits = $(this).prop('checked');
             if (settings.routerModules?.npc) {
-                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false);
+                settings.routerModules.npc.instruction = buildNpcInstruction(settings.npcMajorWords, settings.npcMinorWords, false, settings);
             }
-
             saveSettings();
             if (typeof globalThis._rpgRenderAgentModules === 'function') {
                 globalThis._rpgRenderAgentModules();
@@ -9726,63 +9727,134 @@ RULES:
             saveSettings();
         });
 
-        $('#rpg_tracker_router_prompt').val(settings.routerSystemPromptTemplate).on('input', function () {
-            settings.routerSystemPromptTemplate = String($(this).val() || '');
+        let isSyncingRouterPrompt = false;
+        function syncRouterPromptUi() {
+            const isBasic = !!settings.routerBasicMode;
+            const $prompt = $('#rpg_tracker_router_prompt');
+            const $modularWrap = $('#rpg_tracker_router_modular_prompt_wrap');
+            const $modular = $('#rpg_tracker_router_modular_prompt');
+            const $agentContextWrap = $('#rpg_tracker_router_agent_context_wrap');
+            const $agentContext = $('#rpg_tracker_router_agent_context');
+            const $fragmentsBasic = $('#rpg_tracker_router_fragments_basic');
+            const $fragmentsAgent = $('#rpg_tracker_router_fragments_agent');
+            const $desc = $('#rpg_tracker_router_prompt_desc');
+            const $btn = $('#rpg_tracker_router_btn_reset_prompt');
+
+            isSyncingRouterPrompt = true;
+            if (isBasic) {
+                $desc.html('The editable <strong>Basic Mode</strong> base prompt. Its format/module template is editable below; dynamic placeholders are expanded only for each request.');
+                $prompt.val(settings.routerBasicSystemPromptTemplate || '');
+                $modular.val(settings.routerModularPromptTemplate || '');
+                $modularWrap.show();
+                $agentContextWrap.hide();
+                $fragmentsBasic.show();
+                $fragmentsAgent.hide();
+                $btn.html('<i class="fa-solid fa-arrow-rotate-left"></i> Reset Basic Mode Prompts');
+            } else {
+                $desc.html('The editable <strong>Agent Mode</strong> base prompt. Shared rules are editable below; action/tool schemas are generated from enabled modules at request time.');
+                $prompt.val(settings.routerSystemPromptTemplate || '');
+                $modularWrap.hide();
+                $agentContext.val(settings.routerAgentSharedContextTemplate || '');
+                $agentContextWrap.show();
+                $fragmentsBasic.hide();
+                $fragmentsAgent.show();
+                $btn.html('<i class="fa-solid fa-arrow-rotate-left"></i> Reset Agent Mode Prompts');
+            }
+            $('#rpg_tracker_router_combat_guidance_basic').val(settings.routerCombatProfileGuidanceBasicTemplate || '');
+            $('#rpg_tracker_router_combat_guidance_agent').val(settings.routerCombatProfileGuidanceAgentTemplate || '');
+            $('#rpg_tracker_router_rel_section_basic').val(settings.routerRelSectionBasicTemplate || '');
+            $('#rpg_tracker_router_rel_section_agent').val(settings.routerRelSectionAgentTemplate || '');
+            $('#rpg_tracker_router_auto_pass_restriction').val(settings.routerAutoPassRestrictionTemplate || '');
+            $('#rpg_tracker_router_manual_pass_restriction').val(settings.routerManualPassRestrictionTemplate || '');
+            $('#rpg_tracker_router_existing_npc_nudge').val(settings.routerExistingNpcNudgeTemplate || '');
+            isSyncingRouterPrompt = false;
+
+            if (typeof (/** @type {any} */ ($prompt)).trigger === 'function') {
+                (/** @type {any} */ ($prompt)).trigger('autosize.resize');
+            }
+            if (typeof (/** @type {any} */ (isBasic ? $modular : $agentContext)).trigger === 'function') {
+                (/** @type {any} */ (isBasic ? $modular : $agentContext)).trigger('autosize.resize');
+            }
+        }
+
+        $('#rpg_tracker_router_prompt').on('input', function () {
+            if (isSyncingRouterPrompt) return;
+            const val = String($(this).val() || '');
+            if (settings.routerBasicMode) {
+                settings.routerBasicSystemPromptTemplate = val;
+            } else {
+                settings.routerSystemPromptTemplate = val;
+            }
+            // If user edited the limit in the text directly, sync back to the settings inputs!
+            const limitMatch = val.match(/You are limited to \*\*(\d+) active entries\*\*/i)
+                || val.match(/Maximum Active Entities:\s*\*\*(\d+)\*\*/i);
+            if (limitMatch && limitMatch[1]) {
+                const parsed = parseInt(limitMatch[1], 10);
+                if (parsed > 0 && parsed !== settings.routerMaxActivations) {
+                    settings.routerMaxActivations = parsed;
+                    $('#rpg_tracker_router_max_activations').val(parsed);
+                    $('#rt-agent-router-max-activations').val(parsed);
+                }
+            }
             saveSettings();
         });
 
-        $('#rpg_tracker_router_modular_prompt').val(settings.routerModularPromptTemplate).on('input', function () {
+        $('#rpg_tracker_router_agent_context').on('input', function () {
+            if (isSyncingRouterPrompt || settings.routerBasicMode) return;
+            settings.routerAgentSharedContextTemplate = String($(this).val() || '');
+            saveSettings();
+        });
+
+        $('#rpg_tracker_router_modular_prompt').on('input', function () {
+            if (isSyncingRouterPrompt || !settings.routerBasicMode) return;
             settings.routerModularPromptTemplate = String($(this).val() || '');
             saveSettings();
         });
+
+        const routerFragmentBindings = [
+            ['#rpg_tracker_router_combat_guidance_basic', 'routerCombatProfileGuidanceBasicTemplate'],
+            ['#rpg_tracker_router_combat_guidance_agent', 'routerCombatProfileGuidanceAgentTemplate'],
+            ['#rpg_tracker_router_rel_section_basic', 'routerRelSectionBasicTemplate'],
+            ['#rpg_tracker_router_rel_section_agent', 'routerRelSectionAgentTemplate'],
+            ['#rpg_tracker_router_auto_pass_restriction', 'routerAutoPassRestrictionTemplate'],
+            ['#rpg_tracker_router_manual_pass_restriction', 'routerManualPassRestrictionTemplate'],
+            ['#rpg_tracker_router_existing_npc_nudge', 'routerExistingNpcNudgeTemplate'],
+        ];
+        for (const [selector, key] of routerFragmentBindings) {
+            $(selector).on('input', function () {
+                if (isSyncingRouterPrompt) return;
+                settings[key] = String($(this).val() || '');
+                saveSettings();
+            });
+        }
+
         $('#rpg_tracker_router_btn_reset_prompt').on('click', function () {
-            if (!confirm('Reset Router Agent prompt to default?')) return;
+            const isBasic = !!settings.routerBasicMode;
+            const modeName = isBasic ? 'Basic Mode' : 'Agent Mode';
+            const promptLabel = isBasic ? 'base, format/module, and runtime-fragment prompts' : 'base, shared-context, and runtime-fragment prompts';
+            if (!confirm(`Reset ${modeName} ${promptLabel} to default?`)) return;
 
-            // Delete the stored key so getSettings() falls back to the canonical default in state-manager.js
-            const { extensionSettings } = SillyTavern.getContext();
-            if (extensionSettings[MODULE_NAME]) {
-                delete extensionSettings[MODULE_NAME].routerSystemPromptTemplate;
-            }
-            const freshDefault = getSettings().routerSystemPromptTemplate;
-
-            const s = getSettings();
-            s.routerSystemPromptTemplate = freshDefault;
-
-            const $el = $('#rpg_tracker_router_prompt');
-            $el.val(freshDefault);
-            $el.trigger('input');
-
-            if (typeof (/** @type {any} */ ($el)).trigger === 'function') {
-                (/** @type {any} */ ($el)).trigger('autosize.resize');
-            }
-
+            resetLorebookPromptTemplates(settings, isBasic ? 'basic' : 'agent');
+            syncRouterPromptUi();
             saveSettings();
-            toastr['success']('Router prompt reset to default.', 'RPG Tracker');
+            toastr['success'](`${modeName} prompts reset to default.`, 'RPG Tracker');
         });
 
-        $('#rpg_tracker_router_btn_reset_modular_prompt').on('click', function () {
-            if (!confirm('Reset Modular Agent instruction to default?')) return;
+        syncRouterPromptUi();
 
-            const { extensionSettings } = SillyTavern.getContext();
-            if (extensionSettings[MODULE_NAME]) {
-                delete extensionSettings[MODULE_NAME].routerModularPromptTemplate;
-            }
-            const freshDefault = getSettings().routerModularPromptTemplate;
-
-            const s = getSettings();
-            s.routerModularPromptTemplate = freshDefault;
-
-            const $el = $('#rpg_tracker_router_modular_prompt');
-            $el.val(freshDefault);
-            $el.trigger('input');
-
-            if (typeof (/** @type {any} */ ($el)).trigger === 'function') {
-                (/** @type {any} */ ($el)).trigger('autosize.resize');
-            }
-
+        // One-time notice after migrating NPC word targets from per-section to overall totals.
+        if (settings.npcWordTargetRescaleNotice && typeof settings.npcWordTargetRescaleNotice === 'object') {
+            const notice = settings.npcWordTargetRescaleNotice;
+            delete settings.npcWordTargetRescaleNotice;
             saveSettings();
-            toastr['success']('Modular instructions reset to default.', 'RPG Tracker');
-        });
+            toastr['info'](
+                `NPC word targets are now overall [CORE] totals (exactly N words). ` +
+                `Rescaled ${notice.fromMajor}→${notice.toMajor} major and ${notice.fromMinor}→${notice.toMinor} minor ` +
+                `(×${notice.sectionCount} sections).`,
+                'NPC Word Targets',
+                { timeOut: 12000 },
+            );
+        }
 
         // ── World Progression settings ─────────────────────────────────────────
         const $wpEnabled = $('#rpg_world_progression_enabled');
@@ -10778,8 +10850,7 @@ RULES:
             $('#rpg_world_progression_consolidate_enabled').prop('checked', !!s.worldProgressionConsolidateEnabled);
 
             // Textareas (Agent prompt templates)
-            $('#rpg_tracker_router_prompt').val(s.routerSystemPromptTemplate || '');
-            $('#rpg_tracker_router_modular_prompt').val(s.routerModularPromptTemplate || '');
+            if (typeof syncRouterPromptUi === 'function') syncRouterPromptUi();
             $('#rpg_world_progression_system_prompt').val(s.worldProgressionSystemPrompt || '');
             $('#rpg_world_progression_skeleton_system_prompt').val(s.worldProgressionSkeletonSystemPrompt || '');
 

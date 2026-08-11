@@ -54,10 +54,19 @@ describe('module instruction builders', () => {
     });
 
     it('buildNpcInstruction includes CORE_FORMAT and {{user}} rules', () => {
-        const text = buildNpcInstruction(25, 15, true);
+        const text = buildNpcInstruction(225, 135, true);
         expect(text).toContain('<CORE_FORMAT — NPC only>');
         expect(text).toContain('{{user}}');
         expect(text).toContain('[CORE]');
+    });
+
+    it('buildNpcInstruction uses overall exactly-N-words targets', () => {
+        const text = buildNpcInstruction(225, 135, false);
+        expect(text).toContain('total exactly 225 words');
+        expect(text).toContain('total exactly 135 words');
+        expect(text).toContain('Distribute freely across sections');
+        expect(text).not.toContain('per each section');
+        expect(text).not.toContain('Expand/extrapolate thematically');
     });
 
     it('buildLocInstruction and buildFacInstruction use plain CORE blocks', () => {
@@ -166,11 +175,80 @@ describe('shipped prompt fingerprint', () => {
         expect(computeBundledPromptsFingerprintForSnapshot(legacyClockSnapshot)).toBe(fingerprint);
     });
 
+    it('ignores live user toggles and custom CORE sections', () => {
+        for (const key of Object.keys(testExtensionSettings)) {
+            delete testExtensionSettings[key];
+        }
+        const settings = getSettings();
+        settings.npcRelationshipBars = true;
+        settings.npcCoreSections = [
+            { id: 'custom', name: 'CustomField', description: 'User-only section', icon: 'fa-star', color: '#fff' },
+        ];
+        const fingerprint = computeBundledPromptsFingerprint();
+
+        settings.npcRelationshipBars = false;
+        settings.npcCoreSections = [];
+        expect(computeBundledPromptsFingerprint()).toBe(fingerprint);
+
+        // Unbound / empty settings bag must not change the shipped fingerprint either.
+        delete testExtensionSettings.rpg_tracker;
+        expect(computeBundledPromptsFingerprint()).toBe(fingerprint);
+    });
+
     it('repairs repeated AM/PM placeholders when changing time format', () => {
         const legacy = 'Current Time: HH:MM AM/PM AM/PM AM/PM, Day N';
         expect(adjustPromptTimestamps(legacy, { useDdMmYyFormat: false, use24hTime: false }))
             .toBe('Current Time: HH:MM AM/PM, Day N');
         expect(adjustPromptTimestamps(legacy, { useDdMmYyFormat: false, use24hTime: true }))
             .toBe('Current Time: HH:MM, Day N');
+    });
+
+    it('does not append a second meridiem when normalizing concrete example times', () => {
+        const canonical = 'Examples: 10:42 AM, 10:44 AM, and HH:MM AM/PM.';
+        const format = { useDdMmYyFormat: false, use24hTime: false };
+
+        expect(adjustPromptTimestamps(adjustPromptTimestamps(canonical, format), format))
+            .toBe(canonical);
+    });
+});
+
+describe('5.5.17 lorebook prompt / word-target migration', () => {
+    it('strips {{example}}, seeds runtime fragments, and rescales per-section word targets', () => {
+        for (const key of Object.keys(testExtensionSettings)) {
+            delete testExtensionSettings[key];
+        }
+        testExtensionSettings.rpg_tracker = {
+            settingsVersion: '5.5.16',
+            npcMajorWords: 25,
+            npcMinorWords: 15,
+            routerBasicSystemPromptTemplate: 'Rules end here.\n{{example}}',
+            routerModules: {
+                npc: { enabled: true, tag: 'NPC', format: 'Name | Description | Keywords', instruction: 'old' },
+            },
+        };
+
+        const s = getSettings();
+        expect(s.settingsVersion).toBe(FACTORY_SETTINGS_VERSION);
+        expect(s.routerBasicSystemPromptTemplate).toBe('Rules end here.');
+        expect(s.routerBasicSystemPromptTemplate).not.toContain('{{example}}');
+        expect(s.npcMajorWords).toBe(25 * 9);
+        expect(s.npcMinorWords).toBe(15 * 9);
+        expect(s.routerCombatProfileGuidanceBasicTemplate).toContain('COMBAT PROFILE');
+        expect(s.routerAutoPassRestrictionTemplate).toContain('AUTOMATIC PASS RESTRICTION');
+        expect(s.routerModules.npc.instruction).toContain('total exactly 225 words');
+        expect(s.npcWordTargetRescaleNotice).toEqual({
+            fromMajor: 25,
+            fromMinor: 15,
+            toMajor: 225,
+            toMinor: 135,
+            sectionCount: 9,
+        });
+    });
+
+    it('includes runtime fragments in the lorebook fingerprint snapshot', () => {
+        const snap = buildBundledPromptsSnapshot();
+        expect(snap.lorebook.routerCombatProfileGuidanceBasicTemplate).toContain('COMBAT PROFILE');
+        expect(snap.lorebook.routerRelSectionAgentTemplate).toContain('{{max}}');
+        expect(snap.lorebook.routerExistingNpcNudgeTemplate).toContain('existing-NPC');
     });
 });

@@ -72,6 +72,62 @@ export function computeUnpinnedActiveCount(activeKeys, pinnedKeys) {
     return (Array.isArray(activeKeys) ? activeKeys : []).filter(k => !pinnedSet.has(k)).length;
 }
 
+/** Structured NPC [CORE] field headers used to infer category when the model omits it. */
+const NPC_CORE_FIELD_HINT = /\b(Species|Personality|Brief Background|Habits\s*\/\s*Behaviors|Habits & Behaviors|Strengths|Flaws|Worn Equipment|Combat Profile)\s*:/i;
+
+/**
+ * Infer lorebook category for a commit.record item when the model omitted/misspelled `category`.
+ * Conservative: only returns a tag when the signal is strong.
+ * @param {{label?: string, content?: string, category?: string, comment?: string}} rec
+ * @returns {'NPC'|'LOC'|'EVENT'|null}
+ */
+export function inferRecordCategory(rec) {
+    if (!rec || typeof rec !== 'object') return null;
+    const label = String(rec.label || '').trim();
+    const content = String(rec.content || '');
+
+    // Hierarchical location paths always route to Locations.
+    if (label.includes(' :: ')) return 'LOC';
+
+    // Structured NPC character sheets (Species/Personality/… field headers).
+    if (/\[CORE\]/i.test(content) && NPC_CORE_FIELD_HINT.test(content)) return 'NPC';
+
+    // Timestamped event-style labels (without ::, which already returned LOC).
+    if (/(?:\[Day\s+\d+|\[\d{1,2}\/\d{1,2}\/\d+)/i.test(label)) return 'EVENT';
+
+    return null;
+}
+
+/**
+ * Resolve the category tag used for book routing.
+ * Prefers an explicit/recognized category, then comment if it matches a known tag, then inference.
+ * @param {{label?: string, content?: string, category?: string, comment?: string}} rec
+ * @param {string[]} knownTags Uppercase category tags (NPC, LOC, … plus custom)
+ * @returns {{tag: string|null, inferred: boolean}}
+ */
+export function resolveRecordCategoryTag(rec, knownTags = []) {
+    const tags = (Array.isArray(knownTags) ? knownTags : [])
+        .map(t => String(t || '').toUpperCase())
+        .filter(Boolean);
+    const matchKnown = (raw) => {
+        const cat = String(raw || '').toUpperCase().trim();
+        if (!cat) return null;
+        return tags.find(k => cat === k || cat.includes(k)) || null;
+    };
+
+    const explicit = matchKnown(rec?.category);
+    if (explicit) return { tag: explicit, inferred: false };
+
+    const fromComment = matchKnown(rec?.comment);
+    if (fromComment) return { tag: fromComment, inferred: false };
+
+    const inferred = inferRecordCategory(rec);
+    if (inferred && (!tags.length || tags.includes(inferred))) {
+        return { tag: inferred, inferred: true };
+    }
+    return { tag: null, inferred: false };
+}
+
 /** Extract canonical [CHARACTER] block from the current memo, if present. */
 export function extractCharacterBlock(memo) {
     const match = memo?.match(/\[CHARACTER\]([\s\S]*?)\[\/CHARACTER\]/i);
@@ -107,7 +163,7 @@ export function isAppearanceField(field) {
     return n.includes('body') || n.includes('appearance');
 }
 
-/** True for the always-on "Equipment" (worn gear) field. @param {string} field */
+/** True for the always-on "Worn Equipment" (visibly worn/carried gear) field. @param {string} field */
 export function isEquipmentField(field) {
     const n = (field || '').trim().toLowerCase();
     return n.includes('equipment') || n.includes('gear') || n.includes('worn');
@@ -127,10 +183,10 @@ export function isCombatProfileField(field) {
 
 /**
  * Fields eligible for commit.core / [[UPDATE_CORE:...]] this pass.
- * Body and Equipment are never in this list — they belong exclusively to the
+ * Body and Worn Equipment are never in this list — they belong exclusively to the
  * dedicated appearance/equipment tools. Automatic passes are limited to Combat
  * Profile; Direct Prompt / manual passes unlock the remaining identity fields
- * (including Species, which — unlike Body/Equipment — is never auto-updated).
+ * (including Species, which — unlike Body/Worn Equipment — is never auto-updated).
  * @param {Array<{name?: string}>} coreSections
  * @param {boolean} isManual
  * @returns {string[]}
@@ -160,7 +216,7 @@ export function resolveCoreFieldPatterns(field, opts = {}) {
     const normField = (field || '').trim().toLowerCase();
     if (normField.includes('species')) return ['Species'];
     if (normField.includes('equipment') || normField.includes('gear') || normField.includes('worn')) {
-        return ['Equipment'];
+        return ['Worn Equipment', 'Equipment'];
     }
     if (normField.includes('body') || normField.includes('appearance')) {
         return ['Body', 'Appearance/Species', 'Appearance'];
@@ -199,7 +255,7 @@ export function patchLabeledSection(text, field, newContent, opts = {}) {
     const otherHeaders = [
         'Species',
         'Body', 'Appearance/Species', 'Appearance',
-        'Equipment',
+        'Worn Equipment', 'Equipment',
         'Personality',
         'Brief Background', 'Background',
         'Habits/Behaviors', 'Habits & Behaviors', 'Habits', 'Behaviors',
@@ -223,6 +279,7 @@ export function patchLabeledSection(text, field, newContent, opts = {}) {
         if (h === 'Background') return '(?<!Brief\\s)Background';
         if (h === 'Behaviors') return '(?<!Habits\\/)(?<!Habits & )(?<!Habits and )Behaviors';
         if (h === 'Appearance') return '(?<!/)Appearance(?!\\/Species)';
+        if (h === 'Equipment') return '(?<!Worn\\s)Equipment';
         return esc;
     }).join('|');
 
@@ -307,10 +364,10 @@ export function adjustPromptTimestamps(prompt, settings) {
                 .replace(/Day N/g, 'DD/MM/YYYY')
                 .replace(/Day X/g, 'DD/MM/YYYY')
                 .replace(/Day 0/g, '31/12/2025')
-                .replace(/14:00/g, '02:00 PM')
-                .replace(/22:00/g, '10:00 PM')
-                .replace(/10:42/g, '10:42 AM')
-                .replace(/10:44/g, '10:44 AM')
+                .replace(/14:00(?!\s*(?:AM|PM)\b)/g, '02:00 PM')
+                .replace(/22:00(?!\s*(?:AM|PM)\b)/g, '10:00 PM')
+                .replace(/10:42(?!\s*(?:AM|PM)\b)/g, '10:42 AM')
+                .replace(/10:44(?!\s*(?:AM|PM)\b)/g, '10:44 AM')
                 .replace(/HH:MM/g, 'HH:MM AM/PM')
                 .replace(/HH:MM AM\/PM/g, 'HH:MM AM/PM');
         }
@@ -337,10 +394,10 @@ export function adjustPromptTimestamps(prompt, settings) {
                 .replace(/0([1-9])\/01\/2026/g, 'Day $1')
                 .replace(/DD\/MM\/YYYY/g, 'Day N')
                 .replace(/31\/12\/2025/g, 'Day 0')
-                .replace(/14:00/g, '02:00 PM')
-                .replace(/22:00/g, '10:00 PM')
-                .replace(/10:42/g, '10:42 AM')
-                .replace(/10:44/g, '10:44 AM')
+                .replace(/14:00(?!\s*(?:AM|PM)\b)/g, '02:00 PM')
+                .replace(/22:00(?!\s*(?:AM|PM)\b)/g, '10:00 PM')
+                .replace(/10:42(?!\s*(?:AM|PM)\b)/g, '10:42 AM')
+                .replace(/10:44(?!\s*(?:AM|PM)\b)/g, '10:44 AM')
                 .replace(/HH:MM/g, 'HH:MM AM/PM')
                 .replace(/HH:MM AM\/PM/g, 'HH:MM AM/PM');
         }

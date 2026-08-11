@@ -9,6 +9,7 @@ import {
 import { DEFAULT_NPC_SECTIONS } from '../src/state/schema-sections.js';
 
 const routerSource = readFileSync(new URL('../router.js', import.meta.url), 'utf8');
+const fragmentSource = readFileSync(new URL('../src/state/lorebook-runtime-fragments.js', import.meta.url), 'utf8');
 const schemaSource = readFileSync(new URL('../src/state/schema-sections.js', import.meta.url), 'utf8');
 const moduleInstrSource = readFileSync(new URL('../src/state/module-instructions.js', import.meta.url), 'utf8');
 
@@ -29,7 +30,9 @@ describe('getEligibleCoreFieldNames', () => {
         expect(fields.some(isCombatProfileField)).toBe(true);
         expect(fields).not.toContain('Body');
         expect(fields).not.toContain('Equipment');
+        expect(fields).not.toContain('Worn Equipment');
         expect(fields.every(f => !/^body$|^equipment$|appearance/i.test(f))).toBe(true);
+        expect(fields.every(f => !isEquipmentField(f))).toBe(true);
     });
 
     it('falls back to Combat Profile when sections are empty on automatic passes', () => {
@@ -52,18 +55,20 @@ describe('router.js core-field gating wiring', () => {
     it('commit.core enum uses eligibleCoreFields (not the full section list)', () => {
         expect(routerSource).toContain('const eligibleCoreFields = getEligibleCoreFieldNames(coreSections, isManual)');
         expect(routerSource).toContain("field:   { type: 'string', enum: eligibleCoreFields, description: 'The exact eligible [CORE] field to update this pass.' }");
-        expect(routerSource).toContain('AUTOMATIC PASS RESTRICTION: Combat Profile is the only [CORE] field');
+        expect(fragmentSource).toContain('AUTOMATIC PASS RESTRICTION: Combat Profile is the only [CORE] field');
+        expect(routerSource).toContain('resolveAutoPassRestriction(settings, isManual, eligibleCoreFieldsList)');
     });
 
-    it('Body/Species/Equipment sections exist with clear, non-overlapping descriptions', () => {
+    it('Body/Species/Worn Equipment sections exist with clear, non-overlapping descriptions', () => {
         const names = DEFAULT_NPC_SECTIONS.map(s => s.name);
-        expect(names).toEqual(expect.arrayContaining(['Species', 'Body', 'Equipment']));
+        expect(names).toEqual(expect.arrayContaining(['Species', 'Body', 'Worn Equipment']));
         expect(schemaSource).toContain('Not a transient outfit-of-the-scene');
-        expect(schemaSource).toContain('Do NOT describe worn gear here — see Equipment.');
+        expect(schemaSource).toContain('Do NOT describe worn gear here — see Worn Equipment.');
     });
 
     it('prompts nudge chronicle entries for notable existing-NPC moments', () => {
-        expect(routerSource).toContain('For notable existing-NPC moments that do not change any [CORE] field');
+        expect(fragmentSource).toContain('For notable existing-NPC moments that do not change any [CORE] field');
+        expect(routerSource).toContain('resolveExistingNpcNudge(settings)');
         expect(moduleInstrSource).toContain('For notable existing-NPC moments that do not change any [CORE] field');
     });
 });

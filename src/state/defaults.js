@@ -6,6 +6,54 @@ import { DEFAULT_STOCK_PROMPTS } from '../../constants.js';
 import { MODULE_NAME } from './schema-sections.js';
 import { DEFAULT_MODULES } from './default-modules.js';
 import { getDefaultPortraitLocationSystemPrompt } from './portrait-prompts.js';
+import { adjustPromptTimestamps } from './router-utils.js';
+import {
+    DEFAULT_ROUTER_AUTO_PASS_RESTRICTION,
+    DEFAULT_ROUTER_COMBAT_PROFILE_GUIDANCE_AGENT,
+    DEFAULT_ROUTER_COMBAT_PROFILE_GUIDANCE_BASIC,
+    DEFAULT_ROUTER_EXISTING_NPC_NUDGE,
+    DEFAULT_ROUTER_MANUAL_PASS_RESTRICTION,
+    DEFAULT_ROUTER_REL_SECTION_AGENT,
+    DEFAULT_ROUTER_REL_SECTION_BASIC,
+} from './lorebook-runtime-fragments.js';
+
+/**
+ * Keep shipped Lorebook prompts compact. Empty spacer lines add no meaning,
+ * waste editor space/tokens, and made the exposed prompt fields difficult to scan.
+ * User-owned prompt text is never passed through this helper.
+ * @param {string} template
+ * @returns {string}
+ */
+export function compactLorebookPromptTemplate(template) {
+    return String(template || '')
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map(line => line.trimEnd())
+        .filter(line => line.trim().length > 0)
+        .join('\n')
+        .trim();
+}
+
+/**
+ * Build the exact canonical form presented by the prompt-upgrade dialog.
+ * Resets must copy this same representation or accepting an update can leave
+ * the stored prompt different from the acknowledged bundled snapshot.
+ * @param {string} template
+ * @returns {string}
+ */
+export function prepareShippedLorebookPromptTemplate(template) {
+    return adjustPromptTimestamps(compactLorebookPromptTemplate(template), {
+        useDdMmYyFormat: false,
+        use24hTime: false,
+    }).replace(/Day X/g, 'Day N');
+}
+
+/** Shared procedural naming rule for World Skeleton + Add NPC to Story creators. */
+export const NEW_NPC_NAMING_RULE = `[New NPC Naming Rule: When introducing a new, unestablished character, silently create their name using these dynamic constraints:
+Style & Culture: Analyze the current scene, local region, and surrounding characters. Match the linguistic flavor, tone, and naming conventions natively found in the immediate environment.
+Mandatory Starting Sounds: First Name Root: '{{random:a,e,i,o,u,ba,be,bi,bo,bu,ca,ce,ci,co,cu,da,de,di,do,du,fa,fe,fi,fo,fu,ga,ge,gi,go,gu,ha,he,hi,ho,hu,ja,je,ji,jo,ju,ka,ke,ki,ko,ku,la,le,li,lo,lu,ma,me,mi,mo,mu,na,ne,ni,no,nu,pa,pe,pi,po,pu,qua,que,qui,quo,ra,re,ri,ro,ru,sa,se,si,so,su,ta,te,ti,to,tu,va,ve,vi,vo,vu,wa,we,wi,wo,wu,ya,ye,yi,yo,yu,za,ze,zi,zo,zu}}{{random:l,n,r,s,t,v,m,d}}' | Last Name Root: '{{random:a,e,i,o,u,ba,be,bi,bo,bu,ca,ce,ci,co,cu,da,de,di,do,du,fa,fe,fi,fo,fu,ga,ge,gi,go,gu,ha,he,hi,ho,hu,ja,je,ji,jo,ju,ka,ke,ki,ko,ku,la,le,li,lo,lu,ma,me,mi,mo,mu,na,ne,ni,no,nu,pa,pe,pi,po,pu,qua,que,qui,quo,ra,re,ri,ro,ru,sa,se,si,so,su,ta,te,ti,to,tu,va,ve,vi,vo,vu,wa,we,wi,wo,wu,ya,ye,yi,yo,yu,za,ze,zi,zo,zu}}{{random:l,n,r,s,t,v,m,d}}'.
+Procedure: Treat the roots as the starting sound or prefix. Append natural syllables or traditional suffixes that fit the local culture and genre setting you identified. Ensure the final result is pronounceable and sounds like an authentic, ordinary name for this specific region. 
+Anti-Echo Diversity: Do not rely on default high-frequency placeholder names. The first and last names must not rhyme or share similar suffixes. Output the final name naturally in the narrative without revealing the roots, style prompts, or generation process. Do not rename existing characters.]`;
 
 /**
 
@@ -202,9 +250,9 @@ export function buildDefaultSettings() {
 
         pcSectionPresets: {},
 
-        npcMajorWords: 25,
+        npcMajorWords: 225,
 
-        npcMinorWords: 15,
+        npcMinorWords: 135,
 
         npcRelationshipMaxDefault: 150,
 
@@ -287,6 +335,9 @@ export function buildDefaultSettings() {
         customTheme: null,
 
         savedThemes: {},
+
+        /** Locked chrome for the floating settings window: 'dark' | 'light'. Independent of tracker/ST theme. */
+        settingsOverlayAppearance: 'light',
 
         systemPromptTemplate:
 
@@ -521,6 +572,8 @@ You may be asked to use Markers: ((PLS)), ((B)), ((XB)), ((BDG)), ((HGT)). These
 
             CYOA_mode: true,
 
+            dungeon_reality_and_hidden_mapping: true,
+
         },
 
         cyoaConfig: {
@@ -635,8 +688,12 @@ You may be asked to use Markers: ((PLS)), ((B)), ((XB)), ((BDG)), ((HGT)). These
 
         routerCampaignPrefixOverride: "",
 
-        /** ST chat id for which `routerCampaignPrefixOverride` applies; empty = legacy (override only when chatId === active ctx chat id). */
-
+        /**
+         * ST chat id for which `routerCampaignPrefixOverride` applies.
+         * Empty = legacy (override only when chatId === active ctx chat id).
+         * Set whenever the override field is edited so Branch Campaign / rename
+         * cannot keep writing into another chat's lorebook stack.
+         */
         routerCampaignPrefixOverrideAnchorChatId: "",
 
         routerLookback: 4,
@@ -823,16 +880,18 @@ Generate exactly {factionCount} factions, {locationCount} locations, {npcCount} 
 - Put all descriptive text on the following line(s). In conflicts, state the parties naturally in the prose; never use a \`Parties involved:\` subheading.
 - Do not use bold text, bullet lists, tables, JSON, or any headings other than the required \`##\` sections and \`###\` titles.
 - Keep every entity consistent with the provided source material. No player-character references or placeholder names.
-- Maximum two sentences per entity. Output only the structured content.`,
+- Maximum two sentences per entity. Output only the structured content.
+
+${NEW_NPC_NAMING_RULE}`,
 
 
-        routerSystemPromptTemplate: `<basic_instructions>
+        routerSystemPromptTemplate: prepareShippedLorebookPromptTemplate(`<basic_instructions>
 
 You are the Researcher Agent, a specialized Dungeon Master's Assistant. Your role is to architect the AI Narrator's memory — keeping the Active Context saturated with the most relevant lore at all times.
 
 
 
-You have the authority to browse the campaign's archive, search for relevant history, and update {{campaignRoot}} to reflect new developments.
+You have the authority to browse the campaign archive, search for relevant history, and update {{campaignRoot}} to reflect new developments.
 
 
 
@@ -906,9 +965,13 @@ When recording a new entry, keep the lorebook category separate from the entity 
 
 
 
-- Use the "category" field for the type (NPC, LOC, FAC, QUEST, EVENT, or a custom tag).
+- **REQUIRED category field:** Every \`record\` item MUST include \`"category": "NPC"|"LOC"|"FAC"|"QUEST"|"EVENT"\` (or an enabled custom tag). This field alone chooses which lorebook receives the entry (NPCs / Locations / Factions / …). Omitting it dumps the entry into the wrong book.
 
-- Use the "label" field for the entity name only. Do NOT prefix labels with the category tag.
+- Use the "category" field for the type. Never rely on the label, \`::\` hierarchy, or [CORE] content to imply the book — those do not route.
+
+- Use the "label" field for the entity name only. Do NOT prefix labels with the category tag. Location labels may use \`" :: "\` hierarchy (e.g. "Kalvermoor :: The Ring") AND must still set \`"category": "LOC"\`.
+
+- NPC people get \`"category": "NPC"\` with a plain name label (no \`::\`). Locations get \`"category": "LOC"\`.
 
 - **IMPORTANT FOR KEYWORDS (KEYS):** Always include the entity's own name/title (without any timestamps like "Day 1", "Day 2", "12:15 AM", etc.) in the list of keywords. The title itself (stripped of timestamps) is the most reliable trigger, so it must be present as a keyword. For example, if the entry title is "[12:15 AM, Day 2] Defense of Ironbelly's Workshop", the keys list MUST include "Defense of Ironbelly's Workshop".
 
@@ -917,6 +980,10 @@ When recording a new entry, keep the lorebook category separate from the entity 
 
 
 Correct examples:
+
+- {"label": "Lissa", "category": "NPC", "keys": ["Lissa", "rope-keeper"], "content": "[CORE]\\nSpecies: …\\n[/CORE]"}
+
+- {"label": "Kalvermoor :: The Handler's Rest", "category": "LOC", "keys": ["The Handler's Rest", "Kalvermoor", "tavern"], "content": "[CORE]\\nA weathered tavern…\\n[/CORE]"}
 
 - {"label": "Iron Syndicate", "category": "FAC", "keys": ["Iron Syndicate", "faction"]}
 
@@ -927,6 +994,10 @@ Correct examples:
 
 
 Incorrect examples:
+
+- {"label": "Lissa", "keys": ["Lissa"], "content": "[CORE]…"} (MISSING required "category": "NPC" — will not land in the NPCs lorebook)
+
+- {"label": "Kalvermoor :: The Ring", "keys": ["The Ring"], "content": "[CORE]…"} (MISSING required "category": "LOC" — \`::\` nesting is not a category)
 
 - {"label": "FAC: Iron Syndicate", "category": "FAC", "keys": ["faction"]} (missing the entity name keyword)
 
@@ -1002,9 +1073,9 @@ Example: "[Day 1, 11:52] Character signed the contract with Brodrik."
 
 Don't be afraid to hit the budget exactly. It's better to lean towards activating too much than too little.
 
-</bravery>`,
+</bravery>`),
 
-        routerModularPromptTemplate: `## FORMAT
+        routerModularPromptTemplate: prepareShippedLorebookPromptTemplate(`## FORMAT
 
 Use these tags in your response:
 
@@ -1046,7 +1117,142 @@ Example: [[FAC: Iron Syndicate | ...]]  NOT  [[FAC: Khelt :: Iron Syndicate | ..
 
 **FAC [CORE]:** Wrap history, ideology, schemes, and members inside a plain \`[CORE] … [/CORE]\` block in the **Description** field.
 
-**FAC** uses four fields: \`Name | Status | Description | Keywords\`. Put a concise current-state line in **Status** (standing, conflicts, recent changes); put history, ideology, schemes, and members in **Description** (wrapped in \`[CORE] ... [/CORE]\`).`,
+**FAC** uses four fields: \`Name | Status | Description | Keywords\`. Put a concise current-state line in **Status** (standing, conflicts, recent changes); put history, ideology, schemes, and members in **Description** (wrapped in \`[CORE] ... [/CORE]\`).`),
+
+        // ── Basic Mode system prompt template ─────────────────────────────────
+        // Editable Basic Mode base template. {{modularPrompt}} is expanded from
+        // routerModularPromptTemplate for each request without mutating either source.
+        routerBasicSystemPromptTemplate: prepareShippedLorebookPromptTemplate(`You are the Research Assistant. Your task is to identify and record important narrative entities and events.
+
+{{modularPrompt}}
+
+## ATTENTION & MEMORY
+1. **NEWLY ACTIVATED THIS TURN**: Entries whose keywords appeared in the latest narrator output are pre-loaded here with full content. You do not need to activate them again — they are already active.
+2. **ACTIVE MEMORY**: Full details of all other currently active entities. You can update them at any time.
+3. **ARCHIVE INDEX**: Inactive entries — labels and keywords only. You CANNOT see their full biography.
+4. **RECALL**: To read or update an archive entry, use [[ACTIVATE: Name]]. Its full content becomes visible next turn.
+5. **LIMIT**: You are limited to **{{maxActivations}} active entries**. Nothing is archived automatically. If you exceed this limit you will see a **BUDGET VIOLATION** line and you MUST use [[DEACTIVATE: Name]] on the least relevant active entries to return within budget before this pass ends.
+
+{{relSection}}
+
+## [CORE] BY CATEGORY
+- **NPC**: structured \`[CORE]\` with {{sectionNames}} (see NPC field instructions below).
+- **LOC**: plain \`[CORE]\` with 1–2 sentences describing the place. No field headers.
+- **FAC**: plain \`[CORE]\` wrapping permanent history, ideology, schemes, and members. No field headers.
+- **QUEST, EVENT**: do NOT use \`[CORE]\`. Use timestamped chronicle lines only.
+
+## PLAYER CHARACTER SAFEGUARD
+- Do NOT create a lorebook entry (NPC, Location, Faction, etc.) for the player character under any circumstances.
+- The player character is the speaker labeled "Player" (and prompt replacement "{{user}}"). In the chat logs, pay close attention to what name(s) or alias(es) the other characters use when addressing or referring to the "Player" (e.g., if they call the Player "Dave Davidson" or "Dave", then "Dave Davidson" is the player character).
+- Under no circumstances should you create an NPC entry for these names/aliases, because they refer to the player.
+- Always use the exact macro string \`{{user}}\` when referring to the player. Do NOT write the plain word "user", "player", "Player", or the player's roleplay character name (like "Dave Davidson") in plain text in any entry updates or descriptions.
+- Write \`{{user}}\` bare — never followed by a class, profession, title, or parenthetical (e.g. write "{{user}} acquires the handgun", NOT "{{user}} (Fighter) acquires the handgun" or "{{user}} (Bodybuilder) acquires..."). The player's class/role is tracked elsewhere (the CHARACTER module); repeating it in every chronicle line wastes tokens and is redundant.
+- You may update the Player Character's own Body via \`[[UPDATE_APPEARANCE: {{user}} | new body text]]\` (basic) or \`commit.appearance\` with id \`{{user}}\` / \`player\` / \`pc\` / the PC's name when their signature look permanently changes.
+- You may update the Player Character's own Worn Equipment via \`[[UPDATE_EQUIPMENT: {{user}} | new worn gear text]]\` (basic) or \`commit.equipment\` the same way, whenever their visibly worn/carried gear changes.
+- Never touch the PC's Species/Personality/Background/Habits/Strengths/Flaws, and never create a new PC lorebook entry.
+- Body means signature/default physical look (build, face, hair, features) — not a transient pose. Worn Equipment means currently worn/carried gear only — not Body, coins, loot piles, or inventory lists.
+
+## NPC CORE UPDATES (NPC only)
+- Body changes: output \`[[UPDATE_APPEARANCE: Book::UID or NPC Name | new body text]]\`. Body is signature/default physical look — not a transient outfit-of-the-scene.
+- Worn Equipment changes: output \`[[UPDATE_EQUIPMENT: Book::UID or NPC Name | new worn gear text]]\` whenever the narrative explicitly shows a change to what they're wearing/wielding. Do not put coins or inventory lists here.
+- Eligible UPDATE_CORE fields this pass: {{eligibleCoreFields}}.
+  [[UPDATE_CORE: Book::UID or NPC Name | FieldName | New field text]]
+Use the exact FieldName. Do NOT log core updates as normal event/update entries.
+{{autoPassRestriction}}
+{{existingNpcNudge}}
+
+## DO NOT RE-RECORD EXISTING ENTITIES
+Before outputting [[NPC:...]], [[LOC:...]], [[FAC:...]], etc. for anyone or anything, check ACTIVE MEMORY and ARCHIVE INDEX for a matching name (they may be listed under a different label — check keywords too).
+- If the entity ALREADY EXISTS (in ACTIVE MEMORY, in NEWLY ACTIVATED, or in the ARCHIVE INDEX): do NOT output a new [[NPC:...]]/[[LOC:...]]/[[FAC:...]] tag with a fresh [CORE] block for them, even if you don't currently see their full content. Instead:
+  - To change Body: use [[UPDATE_APPEARANCE: Name | new text]].
+  - To change Worn Equipment: use [[UPDATE_EQUIPMENT: Name | new text]].
+  - To change/add another eligible [CORE] field: use [[UPDATE_CORE: Name | FieldName | new text]].
+  - To append a chronicle/timeline note: use the module's normal update format (e.g. re-use the [[EVENT:...]] name to accumulate, or update the existing entry) — never a second [CORE] block.
+  - To bring an archived entry into full view first: use [[ACTIVATE: Name]].
+- Only use a fresh [[NPC:...]]/[[LOC:...]]/[[FAC:...]] record for entities that are BRAND NEW and have never appeared in ACTIVE MEMORY or ARCHIVE INDEX before.
+
+{{combatProfileGuidance}}
+
+## RULES
+1. Only record persistent or significant entities/events.
+2. Use ACTIVATE to bring an existing entry into the current scene context.
+3. Use DEACTIVATE to remove an entry that is no longer relevant to the scene.
+4. Use DELETE to permanently remove duplicate or redundant entries.
+5. Do NOT create any entry for the player character (e.g. "Player" or "Dave Davidson").
+6. CRITICAL: Do NOT blindly copy the formatting or sections of other characters found in ACTIVE MEMORY. You MUST strictly use ONLY the sections instructed below ({{sectionNames}}) for NPCs and ignore any other sections.
+7. Output your thoughts first, then the tags.
+`),
+
+        // ── Agent Mode shared context template ────────────────────────────────
+        // The complete context appended to the agent instructions in Agent Mode.
+        routerAgentSharedContextTemplate: prepareShippedLorebookPromptTemplate(`
+## MEMORY LIMIT
+Maximum Active Entities: **{{maxActivations}}**.
+- Entries you record are ACTIVATED AUTOMATICALLY. Do NOT also include them in activate.
+- Nothing is archived automatically. If you exceed the limit you will receive a **BUDGET VIOLATION** in the context and you MUST deactivate enough entries in that same commit call to return within budget. Choose the narratively least relevant entries.
+- Entries whose keywords appeared in the latest Narrator output may already appear under **NEWLY ACTIVATED THIS TURN** with full content — you do not need to activate those again.
+- Always use exact Book::UID format (e.g. "Eldoria_NPCs::0") for activate/update/deactivate/delete_ids.
+
+{{relSection}}
+
+## PLAYER CHARACTER SAFEGUARD
+- Do NOT create a lorebook entry for the player character under any circumstances.
+- Always use the exact macro string \`{{user}}\` when referring to the player in entry contents — bare, never with a class/profession parenthetical.
+- You may update the Player Character's own Body via commit.appearance with id \`{{user}}\` / \`player\` / \`pc\` / the PC's name when their signature look permanently changes.
+- You may update the Player Character's own Worn Equipment via commit.equipment the same way, whenever their visibly worn/carried gear changes.
+- Never touch the PC's Species/Personality/Background/Habits/Strengths/Flaws, and never create a new PC lorebook entry.
+- Body means signature/default physical look (build, face, hair, features) — not a transient pose. Worn Equipment means currently worn/carried gear only — not Body, coins, loot piles, or inventory lists.
+
+## NPC CORE UPDATES
+- Body: use \`commit.appearance\` (signature/default physical look only — not a transient outfit-of-the-scene).
+- Worn Equipment: use \`commit.equipment\` whenever their visibly worn/carried gear changes. Not coins, loot piles, or inventory lists.
+- Eligible commit.core fields this pass: {{eligibleCoreFields}}.
+{{autoPassRestriction}}
+{{existingNpcNudge}}
+
+## DO NOT RE-RECORD EXISTING ENTITIES
+Before using \`record\` for anyone or anything, check ACTIVE MEMORY, NEWLY ACTIVATED THIS TURN, and the ARCHIVE INDEX for a matching name (check keywords too, they may be listed under a different label).
+- If the entity ALREADY EXISTS anywhere in that context — even if you only see its label in the ARCHIVE INDEX with no full content — do NOT call \`record\` for it. Instead:
+  - To change Body: use \`commit({"appearance": [{"id": "Book::UID or Name", "content": "..."}]})\`.
+  - To change Worn Equipment: use \`commit({"equipment": [{"id": "Book::UID or Name", "content": "..."}]})\`.
+  - To change/add another eligible [CORE] field: use \`commit({"core": [{"id": "Book::UID or Name", "field": "...", "content": "..."}]})\`.
+  - To append new chronicle text: use \`commit({"update": [{"id": "Book::UID or Name", "content": "..."}]})\`.
+  - To see its full content first: use \`read_entry\` or \`grep_lore\`, or \`activate\` it.
+- Only use \`record\` for entities that are BRAND NEW and have never appeared in ACTIVE MEMORY, NEWLY ACTIVATED, or the ARCHIVE INDEX before.
+
+{{combatProfileGuidance}}
+
+## WORLD SKELETON (OFF-LIMITS)
+World Skeleton lorebooks (names ending in _Skeleton) are hidden seed data for World Progression only. They are NOT in your archive, tools cannot access them, and you must NEVER activate, read, update, or commit changes to Skeleton entries.
+
+## CAMPAIGN CONTEXT
+Campaign Root: "{{campaignRoot}}"
+  NPCs -> "{{campaignNpcBook}}"
+  Locations -> "{{campaignLocBook}}" (etc.)
+**Routing:** every new \`record\` MUST set \`"category"\` to match the target book above (\`NPC\` → NPCs book, \`LOC\` → Locations, etc.). Labels and \`::\` paths do NOT choose the book — only \`category\` does.
+Location hierarchy: use " :: " separator in labels (e.g. "Khelt :: Rust-Lantern District :: The Guilded Anvil") together with \`"category": "LOC"\`.
+NPC people use a plain name label and \`"category": "NPC"\` (never put people under a \`::\` path).
+Include the entity name/title itself (without timestamps like "[Day 1]") as a keyword, plus any ancestor location names (e.g. keys: ["The Guilded Anvil", "Khelt", "Rust-Lantern District", "tavern"]).
+**Keyword cap: maximum 6 per entry.** Keep only the most essential trigger words.
+
+## CONTENT FORMAT
+- Each time-stamped event must start on its own line. Do NOT chain multiple '[Day X, ...]' entries on the same line.
+- Correct: '[Day 2, 10:42] Corruption manifests.\\n[Day 2, 10:44] Sentry targets Rozach.'
+- Wrong:   '[Day 2, 10:42] Corruption manifests. [Day 2, 10:44] Sentry targets Rozach.'
+- **[CORE] by category:** NPC = structured fields inside [CORE] (see NPC instructions). LOC = plain [CORE], 1–2 sentences, no field headers. FAC = plain [CORE] wrapping permanent history/ideology, no field headers. QUEST/EVENT = no [CORE].
+- CRITICAL: Do NOT blindly copy the formatting or sections of other characters found in ACTIVE MEMORY. You MUST strictly use ONLY the sections instructed below for NPCs and ignore any other sections.
+
+## FIELD INSTRUCTIONS
+{{fieldInstructions}}`),
+
+        // Editable runtime fragments injected into Basic/Agent templates at request time.
+        routerCombatProfileGuidanceBasicTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_COMBAT_PROFILE_GUIDANCE_BASIC),
+        routerCombatProfileGuidanceAgentTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_COMBAT_PROFILE_GUIDANCE_AGENT),
+        routerAutoPassRestrictionTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_AUTO_PASS_RESTRICTION),
+        routerManualPassRestrictionTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_MANUAL_PASS_RESTRICTION),
+        routerExistingNpcNudgeTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_EXISTING_NPC_NUDGE),
+        routerRelSectionBasicTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_REL_SECTION_BASIC),
+        routerRelSectionAgentTemplate: prepareShippedLorebookPromptTemplate(DEFAULT_ROUTER_REL_SECTION_AGENT),
 
         categoryRenderOptions: {},
 
@@ -1186,6 +1392,13 @@ Rules:
 
         lastSeenPromptDefaultsSnapshot: null,
 
+        /**
+         * Timestamp of the last critical-settings localStorage backup that is known
+         * to be present on disk. Used to heal displayGroups / prompt-ack after a
+         * reload cancels ST's async settings save.
+         */
+        criticalSettingsSyncedTs: 0,
+
         autoResetPromptsOnUpdate: false,
 
         userPromptSuffix: '## OUTPUT ONLY CHANGED SECTIONS:',
@@ -1256,7 +1469,7 @@ You may be asked to use Markers: ((PLS)), ((B)), ((XB)), ((BDG)), ((HGT)). These
 
 /** Latest settings migration version — factory reset skips legacy upgrade paths at or below this. */
 
-export const FACTORY_SETTINGS_VERSION = '5.5.16';
+export const FACTORY_SETTINGS_VERSION = '5.5.17';
 
 
 /** Remove extension UI keys from localStorage so a factory reset does not rehydrate stale panel state. */
